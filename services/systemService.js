@@ -30,7 +30,7 @@ class SystemService {
     this.videosDir = path.join(this.homedir, 'Videos');
     this.musicDir = path.join(this.homedir, 'Music');
 
-    // Windows app mapping
+    // Windows app mapping (Protocols, Executables & Store Apps)
     this.appMap = {
       'notepad': 'notepad.exe',
       'नोटपैड': 'notepad.exe',
@@ -69,6 +69,11 @@ class SystemService {
       'कंट्रोल पैनल': 'control.exe',
       'camera': 'start microsoft.windows.camera:',
       'कैमरा': 'start microsoft.windows.camera:',
+      'whatsapp': 'start whatsapp:',
+      'व्हाट्सएप': 'start whatsapp:',
+      'व्हाट्सऐप': 'start whatsapp:',
+      'youtube': 'start https://www.youtube.com',
+      'यूट्यूब': 'start https://www.youtube.com',
       'spotify': 'start spotify',
       'word': 'start winword',
       'ms word': 'start winword',
@@ -76,7 +81,14 @@ class SystemService {
       'ms excel': 'start excel',
       'powerpoint': 'start powerpnt',
       'vlc': 'start vlc',
-      'browser': 'start msedge'
+      'browser': 'start msedge',
+      'clock': 'start ms-clock:',
+      'घड़ी': 'start ms-clock:',
+      'photos': 'start ms-photos:',
+      'maps': 'start https://maps.google.com',
+      'मैप्स': 'start https://maps.google.com',
+      'snipping tool': 'start snippingtool.exe',
+      'snip': 'start snippingtool.exe'
     };
 
     // macOS native application mapping
@@ -99,23 +111,26 @@ class SystemService {
       'vs code': 'Visual Studio Code',
       'code': 'Visual Studio Code',
       'visual studio code': 'Visual Studio Code',
+      'camera': 'Photo Booth',
+      'photo booth': 'Photo Booth',
+      'कैमरा': 'Photo Booth',
+      'whatsapp': 'WhatsApp',
+      'व्हाट्सएप': 'WhatsApp',
+      'settings': 'System Settings',
+      'system settings': 'System Settings',
+      'system preferences': 'System Settings',
+      'सेटिंग्स': 'System Settings',
+      'spotify': 'Spotify',
+      'youtube': 'open https://www.youtube.com',
       'finder': 'Finder',
       'files': 'Finder',
       'file explorer': 'Finder',
       'terminal': 'Terminal',
       'iterm': 'iTerm',
       'कमांड प्रॉम्प्ट': 'Terminal',
-      'settings': 'System Settings',
-      'system settings': 'System Settings',
-      'system preferences': 'System Settings',
-      'सेटिंग्स': 'System Settings',
-      'camera': 'Photo Booth',
-      'photo booth': 'Photo Booth',
-      'कैमरा': 'Photo Booth',
       'photos': 'Photos',
       'pictures': 'Photos',
       'music': 'Music',
-      'spotify': 'Spotify',
       'mail': 'Mail',
       'messages': 'Messages',
       'calendar': 'Calendar',
@@ -262,17 +277,21 @@ class SystemService {
       });
     }
 
-    // Windows launch
-    const mappedCmd = this.appMap[clean] || appName.trim();
+    // Windows native application & protocol launch
+    const rawTarget = this.appMap[clean] || appName.trim();
     return new Promise((resolve) => {
-      const psScript = mappedCmd.startsWith('start ')
-        ? `cmd.exe /c "${mappedCmd}"`
-        : `Start-Process -FilePath "${mappedCmd}" -ErrorAction SilentlyContinue`;
+      let cmdToRun = '';
+      if (rawTarget.startsWith('start ')) {
+        const stripped = rawTarget.replace(/^start\s+/i, '').trim();
+        cmdToRun = `cmd.exe /c start "" "${stripped}"`;
+      } else {
+        cmdToRun = `cmd.exe /c start "" "${rawTarget}"`;
+      }
 
-      this.runPowerShell(psScript, 5000).then(res => {
-        resolve({ success: true, app: appName });
-      }).catch(() => {
-        resolve({ success: true, app: appName });
+      this.runPowerShell(cmdToRun, 5000).then(res => {
+        resolve({ success: true, app: appName, detail: res.stdout || 'Launched natively on Windows' });
+      }).catch(err => {
+        resolve({ success: false, app: appName, error: err.message });
       });
     });
   }

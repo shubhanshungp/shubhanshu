@@ -596,11 +596,25 @@ router.delete('/admin/chats/:id', requireAdmin, async (req, res) => {
 // Process chat / voice input
 router.post('/chat', async (req, res) => {
   try {
-    const { message, apiKey, userName, language, city, fileAttachment } = req.body;
+    const { message, apiKey, userName, language, city, fileAttachment, deviceType: bodyType, devicePlatform: bodyPlatform, isLocalHost: bodyLocal } = req.body;
     const deviceId = req.deviceId;
     const deviceName = req.deviceName;
     const targetCity = (city && city.trim()) || (req.user && req.user.city) || 'Patna';
     const effectiveUserName = (req.user && req.user.name) || userName;
+
+    const ua = req.headers['user-agent'] || '';
+    const headerPlatform = req.headers['x-device-platform'] || bodyPlatform;
+    const headerType = req.headers['x-device-type'] || bodyType;
+    const isIOS = headerPlatform === 'ios' || /iPhone|iPad|iPod/i.test(ua);
+    const isAndroid = headerPlatform === 'android' || /Android/i.test(ua);
+    const devicePlatform = isIOS ? 'ios' : isAndroid ? 'android' : (headerPlatform || (os.platform() === 'win32' ? 'windows' : 'desktop'));
+    const deviceType = headerType || (isIOS || isAndroid ? 'mobile' : 'desktop');
+    const isLocalHost = Boolean(
+      bodyLocal === true || bodyLocal === 'true' ||
+      req.headers['x-is-local-host'] === 'true' ||
+      req.ip === '127.0.0.1' || req.ip === '::1' || req.ip === '::ffff:127.0.0.1' ||
+      req.hostname === 'localhost' || req.headers['host']?.includes('localhost')
+    );
 
     if (effectiveUserName) {
       aiService.setUserName(effectiveUserName);
@@ -614,7 +628,19 @@ router.post('/chat', async (req, res) => {
 
     const userId = req.user ? req.user._id : null;
     const promptText = (message && message.trim()) || (fileAttachment ? (fileAttachment.type && fileAttachment.type.startsWith('image/') ? 'Please inspect and analyze this image.' : 'Please analyze this uploaded document.') : '');
-    const aiResult = await aiService.processQuery(promptText, effectiveApiKey, language, deviceId, deviceName, targetCity, fileAttachment, userId);
+    const aiResult = await aiService.processQuery(
+      promptText,
+      effectiveApiKey,
+      language,
+      deviceId,
+      deviceName,
+      targetCity,
+      fileAttachment,
+      userId,
+      devicePlatform,
+      deviceType,
+      isLocalHost
+    );
 
     // Save automatically to MongoDB partitioned by user (if logged in) or deviceId (if guest)
     let savedRecord = null;

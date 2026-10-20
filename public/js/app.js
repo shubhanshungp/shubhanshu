@@ -336,12 +336,31 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // Helper for request headers (includes device partition & Auth token)
+  // Helper for request headers (includes device partition, platform, & Auth token)
   function getDeviceHeaders() {
+    const ua = navigator.userAgent || '';
+    const isIOS = /iPhone|iPad|iPod/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const isAndroid = /Android/i.test(ua);
+    const isMobile = isIOS || isAndroid || /Mobile/i.test(ua);
+    const isTablet = /iPad|Tablet/i.test(ua) || (navigator.maxTouchPoints > 2 && window.innerWidth >= 600 && window.innerWidth <= 1024);
+    const isLocalHost = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
+
+    let platform = 'windows';
+    if (isIOS) platform = 'ios';
+    else if (isAndroid) platform = 'android';
+    else if (/Mac/i.test(navigator.platform || '')) platform = 'mac';
+    else if (/Linux/i.test(navigator.platform || '')) platform = 'linux';
+
+    let deviceType = 'desktop';
+    if (isIOS || isAndroid || isMobile) deviceType = isTablet ? 'tablet' : 'mobile';
+
     const headers = {
       'Content-Type': 'application/json',
       'X-Device-Id': config.deviceId,
-      'X-Device-Name': config.deviceName
+      'X-Device-Name': config.deviceName,
+      'X-Device-Platform': platform,
+      'X-Device-Type': deviceType,
+      'X-Is-Local-Host': isLocalHost ? 'true' : 'false'
     };
     const token = getAuthToken();
     if (token) {
@@ -673,6 +692,13 @@ document.addEventListener('DOMContentLoaded', () => {
       const abortCtrl = new AbortController();
       const abortTimer = setTimeout(() => abortCtrl.abort(), 25000);
 
+      const ua = navigator.userAgent || '';
+      const isIOS = /iPhone|iPad|iPod/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      const isAndroid = /Android/i.test(ua);
+      const isLocalHost = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
+      const platform = isIOS ? 'ios' : (isAndroid ? 'android' : (navigator.platform?.includes('Mac') ? 'mac' : 'windows'));
+      const deviceType = (isIOS || isAndroid) ? 'mobile' : 'desktop';
+
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: getDeviceHeaders(),
@@ -685,7 +711,10 @@ document.addEventListener('DOMContentLoaded', () => {
           deviceId: config.deviceId,
           deviceName: config.deviceName,
           city: config.city || 'Patna',
-          fileAttachment: attachmentToSend
+          fileAttachment: attachmentToSend,
+          devicePlatform: platform,
+          deviceType: deviceType,
+          isLocalHost: isLocalHost
         })
       });
 

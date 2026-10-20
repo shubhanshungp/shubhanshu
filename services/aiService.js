@@ -367,7 +367,7 @@ class AryaAIService {
    * Enables opening apps on Mobile, Tablet, Smartwatch, iOS, and Desktop:
    * WhatsApp, YouTube, Camera, Calculator, Spotify, Maps, Instagram, Telegram, Settings, etc.
    */
-  async handleUniversalAppCommand(lower, originalText, isHindi, deviceId = 'default_device', deviceName = 'Primary Device') {
+  async handleUniversalAppCommand(lower, originalText, isHindi, deviceId = 'default_device', deviceName = 'Primary Device', devicePlatform = 'windows', deviceType = 'desktop', isLocalHost = true) {
     // If it's a direct message to a person or phone number, let messaging engine handle it
     const hasRecipient = originalText.match(/(?:ko|par|को|पर)\s*(?:message|msg|मैसेज|संदेश|call|कॉल)/i) ||
       originalText.match(/(?:message|msg|मैसेज|sms)\s+(?:to\s+)?(\+?[0-9]{10,13}|[a-zA-Z\u0900-\u097F]+)\s*[:\s]/i);
@@ -419,20 +419,32 @@ class AryaAIService {
       return null;
     }
 
-    // Trigger local desktop OS launch if supported and not in cloud
-    try {
-      if (!resolved.isSettings && !resolved.isCamera) {
-        systemService.launchApp(candidateApp).catch(() => {});
+    // Determine target device architecture: Laptop/PC workstation vs. Mobile/Tablet/iOS
+    const isMobileClient = devicePlatform === 'ios' || devicePlatform === 'android' || deviceType === 'mobile' || deviceType === 'tablet' || deviceId?.startsWith('mob_') || deviceId?.startsWith('tab_');
+    const isDesktopWorkstation = !isMobileClient && (isLocalHost || devicePlatform === 'windows' || devicePlatform === 'mac' || devicePlatform === 'linux' || deviceType === 'desktop');
+
+    // 1. If on Laptop / PC (Workstation): Trigger native desktop app immediately on that screen!
+    if (isDesktopWorkstation) {
+      try {
+        await systemService.launchApp(candidateApp);
+      } catch (e) {
+        console.warn('Desktop native launch notice:', e.message);
       }
-    } catch (e) {}
+    }
 
     const appName = resolved.name;
+    const deviceLabel = isDesktopWorkstation 
+      ? 'Laptop / PC (Workstation)' 
+      : (devicePlatform === 'ios' ? 'iOS (iPhone / iPad)' : 'Mobile Phone (Android)');
+
     const speech = isHindi 
-      ? `सर, ${appName} खोला जा रहा है।`
-      : `Opening ${appName} for you, ${this.userName}.`;
+      ? (isDesktopWorkstation ? `सर, आपके लैपटॉप / पीसी पर ${appName} खोल दिया गया है।` : `सर, आपके फोन पर ${appName} खोला जा रहा है।`)
+      : (isDesktopWorkstation ? `Opened ${appName} on your workstation screen, ${this.userName}.` : `Opening ${appName} on your ${deviceLabel}, ${this.userName}.`);
 
     const targetUrl = resolved.universalUrl || resolved.mobileUrl || resolved.webFallback || resolved.deepLink || '#';
-    const display = `🚀 **UNIVERSAL APP LAUNCH [Cross-Device]:**\n• **Application:** **${appName}**\n• **Status:** Launch protocol dispatched\n• **Direct Launch Link:** [🚀 Open ${appName}](${targetUrl})\n\n*(Optimized for Mobile, iPhone/iPad, Android, Smartwatch, Tablet & Desktop)*`;
+    const display = isDesktopWorkstation
+      ? `💻 **WORKSTATION APP LAUNCHED [Local PC]:**\n• **Application:** **${appName}**\n• **Active System:** **${deviceName}** (Workstation)\n• **Status:** Launched on screen\n• **Direct Link:** [Open ${appName}](${targetUrl})`
+      : `📱 **MOBILE APP LAUNCH [${deviceLabel}]:**\n• **Application:** **${appName}**\n• **Active System:** **${deviceName}**\n• **Status:** Launch protocol dispatched\n• **Direct Launch Link:** [🚀 Open ${appName}](${targetUrl})`;
 
     return {
       speech,
@@ -440,6 +452,8 @@ class AryaAIService {
       action: 'launch_app',
       data: {
         appName,
+        isDesktopWorkstation,
+        deviceLabel,
         universalUrl: resolved.universalUrl || null,
         mobileUrl: resolved.mobileUrl || null,
         iosDeepLink: resolved.iosDeepLink || null,
@@ -584,8 +598,8 @@ class AryaAIService {
   /**
    * Main entry to process user prompt and generate ARYA. response
    */
-  async processQuery(userInput, customApiKey = null, preferredLang = 'en', deviceId = 'default_device', deviceName = 'Primary Device', targetCity = 'Patna', fileAttachment = null, userId = null) {
-    const res = await this._processQueryInternal(userInput, customApiKey, preferredLang, deviceId, deviceName, targetCity, fileAttachment, userId);
+  async processQuery(userInput, customApiKey = null, preferredLang = 'en', deviceId = 'default_device', deviceName = 'Primary Device', targetCity = 'Patna', fileAttachment = null, userId = null, devicePlatform = 'windows', deviceType = 'desktop', isLocalHost = true) {
+    const res = await this._processQueryInternal(userInput, customApiKey, preferredLang, deviceId, deviceName, targetCity, fileAttachment, userId, devicePlatform, deviceType, isLocalHost);
     if (res && res.speech) {
       const isHindi = res.language === 'hi' || this.detectHindi(userInput || '', preferredLang);
       res.speech = this.cleanVoiceSpeech(res.speech, isHindi);
@@ -596,7 +610,7 @@ class AryaAIService {
   /**
    * Internal routing matrix for queries
    */
-  async _processQueryInternal(userInput, customApiKey = null, preferredLang = 'en', deviceId = 'default_device', deviceName = 'Primary Device', targetCity = 'Patna', fileAttachment = null, userId = null) {
+  async _processQueryInternal(userInput, customApiKey = null, preferredLang = 'en', deviceId = 'default_device', deviceName = 'Primary Device', targetCity = 'Patna', fileAttachment = null, userId = null, devicePlatform = 'windows', deviceType = 'desktop', isLocalHost = true) {
     let text = (userInput || '').trim();
     if (!text && fileAttachment) {
       text = fileAttachment.type && fileAttachment.type.startsWith('image/')
@@ -626,7 +640,7 @@ class AryaAIService {
 
     // 0. UNIVERSAL CROSS-DEVICE APP ENGINE (Mobile, Tablet, Smartwatch, iOS, Desktop)
     // Matches: "whatsapp open", "open whatsapp", "whatsapp kholo", "open camera", "open calculator", "open spotify", "open instagram", "open settings", "open <any app>", etc.
-    const universalAppResult = await this.handleUniversalAppCommand(lower, text, isHindi, deviceId, deviceName);
+    const universalAppResult = await this.handleUniversalAppCommand(lower, text, isHindi, deviceId, deviceName, devicePlatform, deviceType, isLocalHost);
     if (universalAppResult) {
       universalAppResult.language = lang;
       universalAppResult.deviceId = deviceId;
