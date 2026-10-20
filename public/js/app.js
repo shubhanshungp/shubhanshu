@@ -719,57 +719,41 @@ document.addEventListener('DOMContentLoaded', () => {
         audio.playAcknowledge();
         voice.speak(cleanSpeechForVoice(data.speech), data.language);
 
-        // Execute Action Hooks
+        // Execute Cross-Platform Action Hooks
         if (data.action === 'launch_app' || data.action === 'open_app') {
           audio.playAcknowledge();
-          const appInfo = data.data || {};
-          if (appInfo.isSettings) {
-            settingsModal.classList.add('open');
-          } else if (appInfo.isCamera) {
-            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-              navigator.mediaDevices.getUserMedia({ video: true })
-                .then(stream => {
-                  stream.getTracks().forEach(t => t.stop());
-                })
-                .catch(e => console.warn('Camera notice:', e.message));
-            }
-          } else if (appInfo.deepLink) {
-            try {
-              window.location.href = appInfo.deepLink;
-            } catch (e) {
-              if (appInfo.webFallback) {
-                try { window.open(appInfo.webFallback, '_blank'); } catch (err) {}
-              }
-            }
-          } else if (appInfo.webFallback) {
-            try { window.open(appInfo.webFallback, '_blank'); } catch (e) {}
-          }
+          launchAppOnDevice(data.data);
         } else if (data.action === 'open_url' && data.data && data.data.url) {
-          try {
-            window.open(data.data.url, '_blank');
-          } catch (e) {
-            console.warn('Popup blocked, direct link card provided:', e);
-          }
+          audio.playAcknowledge();
+          launchAppOnDevice(data.data);
         } else if (data.action === 'open_maps' && data.data) {
           audio.playAcknowledge();
-          const targetMaps = data.data.googleMapsUrl || data.data.url;
-          if (targetMaps) {
-            try { window.open(targetMaps, '_blank'); } catch (e) {}
-          }
+          launchAppOnDevice({
+            appName: 'Maps',
+            universalUrl: data.data.googleMapsUrl || data.data.url,
+            iosDeepLink: data.data.appleMapsUrl || 'https://maps.apple.com',
+            androidDeepLink: 'geo:0,0?q=' + encodeURIComponent(data.data.destination || ''),
+            webFallback: data.data.googleMapsUrl || data.data.url
+          });
         } else if (data.action === 'phone_call' && data.data && data.data.telUrl) {
           audio.playAcknowledge();
-          const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-          if (isMobile) {
-            window.location.href = data.data.telUrl;
-          }
+          window.location.href = data.data.telUrl;
         } else if (data.action === 'send_sms' && data.data && data.data.smsUrl) {
           audio.playAcknowledge();
-          const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-          if (isMobile) {
-            window.location.href = data.data.smsUrl;
-          }
+          window.location.href = data.data.smsUrl;
         } else if (data.action === 'whatsapp_message') {
           audio.playAcknowledge();
+          const waUrl = data.data && (data.data.waMeUrl || data.data.whatsappWebUrl || data.data.whatsappDesktopUrl);
+          if (waUrl) {
+            launchAppOnDevice({
+              appName: 'WhatsApp',
+              universalUrl: data.data.waMeUrl || waUrl,
+              mobileUrl: data.data.waMeUrl || waUrl,
+              androidDeepLink: 'whatsapp://send',
+              androidIntent: 'intent://send#Intent;package=com.whatsapp;scheme=whatsapp;end',
+              webFallback: data.data.whatsappWebUrl || waUrl
+            });
+          }
         } else if (data.action === 'contact_saved' || data.action === 'contacts_list') {
           audio.playAcknowledge();
         } else if (data.action === 'note_saved') {
@@ -832,6 +816,232 @@ document.addEventListener('DOMContentLoaded', () => {
       .trim();
   }
 
+  // ==========================================================================
+  // UNIVERSAL MOBILE, IOS & CROSS-DEVICE APP ENGINE
+  // ==========================================================================
+  let cameraMediaStream = null;
+  const cameraModal = document.getElementById('cameraModal');
+  const cameraVideo = document.getElementById('cameraVideo');
+  const cameraCanvas = document.getElementById('cameraCanvas');
+  const closeCameraModalBtn = document.getElementById('closeCameraModalBtn');
+  const capturePhotoBtn = document.getElementById('capturePhotoBtn');
+  const switchCameraDeviceBtn = document.getElementById('switchCameraDeviceBtn');
+  const cameraStatusMsg = document.getElementById('cameraStatusMsg');
+  const nativeCameraInput = document.getElementById('nativeCameraInput');
+
+  let currentCameraFacingMode = 'environment';
+
+  function openDeviceCamera() {
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    if (isMobile && nativeCameraInput) {
+      nativeCameraInput.click();
+    } else {
+      openLiveCameraViewfinder();
+    }
+  }
+
+  if (nativeCameraInput) {
+    nativeCameraInput.addEventListener('change', (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (file) {
+        handleFileAttachment(file);
+        audio.playAcknowledge();
+      }
+    });
+  }
+
+  async function openLiveCameraViewfinder() {
+    if (!cameraModal || !cameraVideo) return;
+    cameraModal.classList.add('open');
+    cameraModal.style.display = 'flex';
+    if (cameraStatusMsg) cameraStatusMsg.textContent = 'Engaging optical sensor stream...';
+
+    stopCameraStream();
+
+    try {
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        cameraMediaStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: currentCameraFacingMode, width: { ideal: 1280 }, height: { ideal: 720 } },
+          audio: false
+        });
+        cameraVideo.srcObject = cameraMediaStream;
+        if (cameraStatusMsg) cameraStatusMsg.textContent = 'Optical sensor stream active.';
+      } else {
+        if (cameraStatusMsg) cameraStatusMsg.textContent = 'Camera API not supported in this browser.';
+      }
+    } catch (err) {
+      if (cameraStatusMsg) cameraStatusMsg.textContent = `Camera Access Notice: ${err.message}`;
+    }
+  }
+
+  function stopCameraStream() {
+    if (cameraMediaStream) {
+      cameraMediaStream.getTracks().forEach(t => t.stop());
+      cameraMediaStream = null;
+    }
+  }
+
+  if (closeCameraModalBtn) {
+    closeCameraModalBtn.addEventListener('click', () => {
+      stopCameraStream();
+      if (cameraModal) {
+        cameraModal.classList.remove('open');
+        cameraModal.style.display = 'none';
+      }
+    });
+  }
+
+  if (switchCameraDeviceBtn) {
+    switchCameraDeviceBtn.addEventListener('click', () => {
+      currentCameraFacingMode = currentCameraFacingMode === 'environment' ? 'user' : 'environment';
+      openLiveCameraViewfinder();
+    });
+  }
+
+  if (capturePhotoBtn && cameraVideo && cameraCanvas) {
+    capturePhotoBtn.addEventListener('click', () => {
+      try {
+        const w = cameraVideo.videoWidth || 640;
+        const h = cameraVideo.videoHeight || 480;
+        cameraCanvas.width = w;
+        cameraCanvas.height = h;
+        const ctx = cameraCanvas.getContext('2d');
+        ctx.drawImage(cameraVideo, 0, 0, w, h);
+        const dataUrl = cameraCanvas.toDataURL('image/jpeg', 0.85);
+
+        currentAttachment = {
+          name: `camera_capture_${Date.now()}.jpg`,
+          type: 'image/jpeg',
+          size: Math.round(dataUrl.length * 0.75),
+          dataUrl
+        };
+        showAttachmentPreview(currentAttachment);
+        audio.playAcknowledge();
+        stopCameraStream();
+        if (cameraModal) {
+          cameraModal.classList.remove('open');
+          cameraModal.style.display = 'none';
+        }
+      } catch (err) {
+        alert('Could not capture frame: ' + err.message);
+      }
+    });
+  }
+
+  // Cyber HUD Calculator
+  const calculatorModal = document.getElementById('calculatorModal');
+  const closeCalculatorModalBtn = document.getElementById('closeCalculatorModalBtn');
+  const calcDisplay = document.getElementById('calcDisplay');
+  let calcExpression = '';
+
+  function openCyberCalculator() {
+    if (calculatorModal) {
+      calculatorModal.classList.add('open');
+      calculatorModal.style.display = 'flex';
+      calcExpression = '';
+      if (calcDisplay) calcDisplay.value = '0';
+    }
+  }
+
+  if (closeCalculatorModalBtn && calculatorModal) {
+    closeCalculatorModalBtn.addEventListener('click', () => {
+      calculatorModal.classList.remove('open');
+      calculatorModal.style.display = 'none';
+    });
+  }
+
+  document.querySelectorAll('.calc-key').forEach(btn => {
+    btn.addEventListener('click', () => {
+      audio.playBeep();
+      const k = btn.getAttribute('data-k');
+      if (k === 'C') {
+        calcExpression = '';
+        if (calcDisplay) calcDisplay.value = '0';
+      } else if (k === 'DEL') {
+        calcExpression = calcExpression.slice(0, -1);
+        if (calcDisplay) calcDisplay.value = calcExpression || '0';
+      } else if (k === '=') {
+        try {
+          const sanitized = calcExpression.replace(/[^0-9\+\-\*\/\.\(\)]/g, '');
+          const result = Function(`'use strict'; return (${sanitized})`)();
+          calcDisplay.value = String(result);
+          calcExpression = String(result);
+        } catch (e) {
+          calcDisplay.value = 'ERR';
+          calcExpression = '';
+        }
+      } else {
+        calcExpression += k;
+        if (calcDisplay) calcDisplay.value = calcExpression;
+      }
+    });
+  });
+
+  // Client-side Cross-Platform App Launcher
+  function launchAppOnDevice(appData) {
+    if (!appData) return;
+    const ua = navigator.userAgent || '';
+    const isIOS = /iPhone|iPad|iPod/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const isAndroid = /Android/i.test(ua);
+    const isMobile = isIOS || isAndroid || /Mobile/i.test(ua);
+
+    if (appData.isSettings) {
+      if (settingsModal) {
+        settingsModal.classList.add('open');
+        settingsModal.style.display = 'flex';
+      }
+      return;
+    }
+
+    if (appData.isCamera) {
+      openDeviceCamera();
+      return;
+    }
+
+    if (appData.isCalculator) {
+      openCyberCalculator();
+      return;
+    }
+
+    let targetUrl = null;
+    if (isIOS) {
+      targetUrl = appData.iosDeepLink || appData.universalUrl || appData.mobileUrl || appData.webFallback || appData.url;
+    } else if (isAndroid) {
+      targetUrl = appData.androidIntent || appData.androidDeepLink || appData.universalUrl || appData.mobileUrl || appData.webFallback || appData.url;
+    } else {
+      targetUrl = appData.webFallback || appData.universalUrl || appData.deepLink || appData.url;
+    }
+
+    if (!targetUrl || targetUrl === '#' || targetUrl.startsWith('#')) return;
+
+    try {
+      if (isMobile) {
+        if (/^(?:tel|sms|mailto):/i.test(targetUrl)) {
+          window.location.href = targetUrl;
+          return;
+        }
+
+        const link = document.createElement('a');
+        link.href = targetUrl;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        document.body.appendChild(link);
+        link.click();
+        setTimeout(() => link.remove(), 1000);
+
+        if (targetUrl.startsWith('intent://') || targetUrl.startsWith('whatsapp://')) {
+          setTimeout(() => {
+            window.location.href = targetUrl;
+          }, 200);
+        }
+      } else {
+        window.open(targetUrl, '_blank');
+      }
+    } catch (err) {
+      console.warn('App launch notice:', err);
+    }
+  }
+
   // Append a message bubble to the chat feed
   function appendMessageCard({ sender, text, speechText, isUser, time, lang, action, data, attachment }) {
     const card = document.createElement('div');
@@ -847,6 +1057,49 @@ document.addEventListener('DOMContentLoaded', () => {
     const isMaps = action === 'open_maps' && data;
     const isOpenUrl = action === 'open_url' && data && data.url;
     const isLaunchApp = (action === 'launch_app' || action === 'open_app') && data;
+
+    // Determine platform-optimized launch URLs for interactive touch cards
+    const ua = navigator.userAgent || '';
+    const isIOS = /iPhone|iPad|iPod/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const isAndroid = /Android/i.test(ua);
+
+    let mobileLaunchUrl = null;
+    let appPillLabel = 'OPEN APP';
+    let appPillClass = 'primary';
+    let appIcon = '🚀';
+
+    if (isLaunchApp) {
+      const appNameUpper = (data.appName || '').toUpperCase();
+      if (appNameUpper.includes('WHATSAPP')) {
+        appPillClass = 'whatsapp';
+        appIcon = '📲';
+        mobileLaunchUrl = data.universalUrl || data.mobileUrl || 'https://wa.me/';
+        appPillLabel = 'OPEN WHATSAPP';
+      } else if (appNameUpper.includes('YOUTUBE')) {
+        appPillClass = 'youtube';
+        appIcon = '▶️';
+        mobileLaunchUrl = data.universalUrl || data.mobileUrl || 'https://www.youtube.com';
+        appPillLabel = 'OPEN YOUTUBE';
+      } else if (data.isCamera) {
+        appIcon = '📸';
+        appPillLabel = 'LAUNCH CAMERA';
+      } else if (data.isCalculator) {
+        appIcon = '🧮';
+        appPillLabel = 'OPEN CALCULATOR';
+      } else if (data.isSettings) {
+        appIcon = '⚙️';
+        appPillLabel = 'OPEN SETTINGS';
+      } else {
+        if (isIOS) {
+          mobileLaunchUrl = data.iosDeepLink || data.universalUrl || data.mobileUrl || data.webFallback || data.deepLink;
+        } else if (isAndroid) {
+          mobileLaunchUrl = data.androidIntent || data.androidDeepLink || data.universalUrl || data.mobileUrl || data.webFallback || data.deepLink;
+        } else {
+          mobileLaunchUrl = data.webFallback || data.universalUrl || data.deepLink;
+        }
+        appPillLabel = `OPEN ${escapeHtml(appNameUpper || 'APP')}`;
+      }
+    }
 
     card.innerHTML = `
       <div class="msg-avatar">${avatarChar}</div>
@@ -867,46 +1120,70 @@ document.addEventListener('DOMContentLoaded', () => {
         ` : ''}
         <div class="msg-text">${formatMarkdownText(text)}</div>
         ${isLaunchApp ? `
-          <div style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap;">
-            ${data.deepLink ? `
-              <a href="${data.deepLink}" class="hud-pill-btn" style="text-decoration:none; display:inline-flex; align-items:center; gap:6px; font-size:12px; padding:8px 16px; border:1px solid #00f0ff; color:#00f0ff; background:rgba(0,240,255,0.12); border-radius:4px; font-weight:700;">
-                <span>🚀</span> OPEN ${escapeHtml((data.appName || 'APP').toUpperCase())} (NATIVE)
-              </a>
-            ` : ''}
-            ${data.webFallback ? `
-              <a href="${data.webFallback}" target="_blank" rel="noopener noreferrer" class="hud-pill-btn" style="text-decoration:none; display:inline-flex; align-items:center; gap:6px; font-size:12px; padding:8px 16px; border:1px solid #25D366; color:#25D366; background:rgba(37,211,102,0.1); border-radius:4px; font-weight:700;">
-                <span>🌐</span> OPEN WEB / BROWSER
-              </a>
-            ` : ''}
-            ${data.isSettings ? `
-              <button type="button" class="hud-btn secondary open-settings-quick-btn" style="font-size:12px; padding:8px 16px; border-radius:4px;">
-                <span>⚙️</span> OPEN SYSTEM SETTINGS
-              </button>
-            ` : ''}
+          <div class="hud-app-launch-card">
+            <div class="hud-app-launch-header">
+              <span>${appIcon}</span>
+              <span>${escapeHtml((data.appName || 'APP').toUpperCase())} READY</span>
+            </div>
+            <div class="hud-app-launch-actions">
+              ${data.isCamera ? `
+                <button type="button" class="hud-app-launch-btn primary trigger-device-camera-btn">
+                  <span>📸</span> LAUNCH CAMERA VIEW
+                </button>
+              ` : data.isCalculator ? `
+                <button type="button" class="hud-app-launch-btn primary trigger-device-calc-btn">
+                  <span>🧮</span> OPEN CALCULATOR
+                </button>
+                <a href="${data.universalUrl || 'https://www.google.com/search?q=calculator'}" target="_blank" rel="noopener noreferrer" class="hud-app-launch-btn secondary" style="font-size:12px;">
+                  <span>🌐</span> GOOGLE CALCULATOR ↗
+                </a>
+              ` : data.isSettings ? `
+                <button type="button" class="hud-app-launch-btn primary open-settings-quick-btn">
+                  <span>⚙️</span> OPEN SYSTEM SETTINGS
+                </button>
+              ` : `
+                <a href="${mobileLaunchUrl || data.universalUrl || data.webFallback || '#'}" target="_blank" rel="noopener noreferrer" class="hud-app-launch-btn ${appPillClass}">
+                  <span>${appIcon}</span> ${appPillLabel} NOW ↗
+                </a>
+                ${data.webFallback && data.webFallback !== mobileLaunchUrl ? `
+                  <a href="${data.webFallback}" target="_blank" rel="noopener noreferrer" class="hud-app-launch-btn secondary" style="font-size:11px;">
+                    <span>🌐</span> WEB VERSION
+                  </a>
+                ` : ''}
+              `}
+            </div>
+            <span class="hud-app-launch-hint">Tap above to open ${escapeHtml(data.appName || 'application')} on Mobile, iOS, or Tablet</span>
           </div>
         ` : ''}
         ${isWhatsApp ? `
-          <div style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap;">
-            <a href="${data.waMeUrl || data.whatsappWebUrl}" target="_blank" rel="noopener noreferrer" class="hud-pill-btn" style="text-decoration:none; display:inline-flex; align-items:center; gap:6px; font-size:11px; padding:6px 14px; border:1px solid #25D366; color:#25D366; border-radius:4px; font-weight:700;">
-              <span>📲</span> OPEN WHATSAPP (APP/WEB)
-            </a>
-            ${data.whatsappDesktopUrl ? `
-            <a href="${data.whatsappDesktopUrl}" class="hud-pill-btn" style="text-decoration:none; display:inline-flex; align-items:center; gap:6px; font-size:11px; padding:6px 14px; border:1px solid #25D366; color:#25D366; border-radius:4px;">
-              <span>💻</span> OPEN DESKTOP APP
-            </a>
-            ` : ''}
-            <button type="button" class="hud-pill-btn copy-msg-quick-btn" data-msg="${escapeHtml(data.message || '')}" style="font-size:11px; padding:6px 14px; border:1px solid var(--hud-cyan); color:var(--hud-cyan); border-radius:4px; cursor:pointer;">
-              <span>📋</span> COPY MESSAGE
-            </button>
+          <div class="hud-app-launch-card">
+            <div class="hud-app-launch-header">
+              <span>📲</span>
+              <span>WHATSAPP MESSAGE READY</span>
+            </div>
+            <div class="hud-app-launch-actions">
+              <a href="${data.waMeUrl || data.whatsappWebUrl || 'https://wa.me/'}" target="_blank" rel="noopener noreferrer" class="hud-app-launch-btn whatsapp">
+                <span>📲</span> OPEN IN WHATSAPP ↗
+              </a>
+              ${data.whatsappDesktopUrl ? `
+                <a href="${data.whatsappDesktopUrl}" class="hud-app-launch-btn secondary" style="font-size:11px;">
+                  <span>💻</span> DESKTOP APP
+                </a>
+              ` : ''}
+              <button type="button" class="hud-app-launch-btn secondary copy-msg-quick-btn" data-msg="${escapeHtml(data.message || '')}" style="font-size:11px;">
+                <span>📋</span> COPY TEXT
+              </button>
+            </div>
+            <span class="hud-app-launch-hint">Tap above to launch WhatsApp chat directly on your phone</span>
           </div>
         ` : ''}
         ${isPhoneCall ? `
           <div style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap;">
-            <a href="${data.telUrl}" class="hud-pill-btn" style="text-decoration:none; display:inline-flex; align-items:center; gap:6px; font-size:12px; padding:8px 16px; border:1px solid #00f0ff; color:#00f0ff; background:rgba(0,240,255,0.1); border-radius:4px; font-weight:700;">
+            <a href="${data.telUrl}" class="hud-app-launch-btn primary" style="font-size:12px;">
               <span>📞</span> CALL ${escapeHtml(data.recipient || data.phone || 'CONTACT')} NOW
             </a>
             ${data.phone ? `
-            <button type="button" class="hud-pill-btn copy-msg-quick-btn" data-msg="${escapeHtml(data.phone)}" style="font-size:11px; padding:6px 14px; border:1px solid var(--hud-cyan); color:var(--hud-cyan); border-radius:4px; cursor:pointer;">
+            <button type="button" class="hud-app-launch-btn secondary copy-msg-quick-btn" data-msg="${escapeHtml(data.phone)}" style="font-size:11px;">
               <span>📋</span> COPY NUMBER
             </button>
             ` : ''}
@@ -914,30 +1191,43 @@ document.addEventListener('DOMContentLoaded', () => {
         ` : ''}
         ${isSms ? `
           <div style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap;">
-            <a href="${data.smsUrl}" class="hud-pill-btn" style="text-decoration:none; display:inline-flex; align-items:center; gap:6px; font-size:12px; padding:8px 16px; border:1px solid #ffaa00; color:#ffaa00; background:rgba(255,170,0,0.1); border-radius:4px; font-weight:700;">
+            <a href="${data.smsUrl}" class="hud-app-launch-btn primary" style="font-size:12px; background:rgba(255,170,0,0.25); border-color:#ffaa00; color:#ffaa00;">
               <span>💬</span> OPEN SMS / MESSAGES APP
             </a>
-            <button type="button" class="hud-pill-btn copy-msg-quick-btn" data-msg="${escapeHtml(data.message || '')}" style="font-size:11px; padding:6px 14px; border:1px solid var(--hud-cyan); color:var(--hud-cyan); border-radius:4px; cursor:pointer;">
+            <button type="button" class="hud-app-launch-btn secondary copy-msg-quick-btn" data-msg="${escapeHtml(data.message || '')}" style="font-size:11px;">
               <span>📋</span> COPY TEXT
             </button>
           </div>
         ` : ''}
         ${isMaps ? `
           <div style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap;">
-            <a href="${data.googleMapsUrl || data.url}" target="_blank" rel="noopener noreferrer" class="hud-pill-btn" style="text-decoration:none; display:inline-flex; align-items:center; gap:6px; font-size:11px; padding:6px 14px; border:1px solid #00f0ff; color:#00f0ff; border-radius:4px; font-weight:700;">
+            <a href="${data.googleMapsUrl || data.url}" target="_blank" rel="noopener noreferrer" class="hud-app-launch-btn primary" style="font-size:11px;">
               <span>🌐</span> GOOGLE MAPS (ANDROID / WEB)
             </a>
             ${data.appleMapsUrl ? `
-            <a href="${data.appleMapsUrl}" target="_blank" rel="noopener noreferrer" class="hud-pill-btn" style="text-decoration:none; display:inline-flex; align-items:center; gap:6px; font-size:11px; padding:6px 14px; border:1px solid #ff7700; color:#ff7700; border-radius:4px; font-weight:700;">
+            <a href="${data.appleMapsUrl}" target="_blank" rel="noopener noreferrer" class="hud-app-launch-btn secondary" style="font-size:11px; border-color:#ff7700; color:#ff7700;">
               <span>🍏</span> APPLE MAPS (MAC / IOS)
             </a>
             ` : ''}
           </div>
         ` : ''}
-        ${isOpenUrl ? `
+        ${(isOpenUrl && data.platform === 'youtube') ? `
+          <div class="hud-app-launch-card">
+            <div class="hud-app-launch-header">
+              <span>▶️</span>
+              <span>YOUTUBE PLAYBACK ENGAGED</span>
+            </div>
+            <div class="hud-app-launch-actions">
+              <a href="${data.universalUrl || data.url}" target="_blank" rel="noopener noreferrer" class="hud-app-launch-btn youtube">
+                <span>▶️</span> OPEN YOUTUBE APP ↗
+              </a>
+            </div>
+            <span class="hud-app-launch-hint">Tap above to play in YouTube on your phone / tablet</span>
+          </div>
+        ` : isOpenUrl ? `
           <div style="margin-top:10px;">
-            <a href="${data.url}" target="_blank" rel="noopener noreferrer" class="hud-pill-btn" style="text-decoration:none; display:inline-flex; align-items:center; gap:6px; font-size:11px; padding:6px 14px; border:1px solid var(--hud-cyan); color:var(--hud-cyan); border-radius:4px;">
-              <span>🌐</span> OPEN IN BROWSER
+            <a href="${data.url}" target="_blank" rel="noopener noreferrer" class="hud-app-launch-btn primary" style="font-size:11px;">
+              <span>🌐</span> OPEN LINK (${escapeHtml(data.platform || 'WEB')}) ↗
             </a>
           </div>
         ` : ''}
@@ -964,17 +1254,33 @@ document.addEventListener('DOMContentLoaded', () => {
         const msg = copyBtn.getAttribute('data-msg') || '';
         navigator.clipboard.writeText(msg).then(() => {
           copyBtn.innerHTML = '<span>✅</span> COPIED!';
-          setTimeout(() => { copyBtn.innerHTML = '<span>📋</span> COPY MESSAGE'; }, 2000);
+          setTimeout(() => { copyBtn.innerHTML = '<span>📋</span> COPY TEXT'; }, 2000);
         });
       });
     }
 
-    const openSettingsQuickBtn = card.querySelector('.open-settings-quick-btn');
-    if (openSettingsQuickBtn) {
-      openSettingsQuickBtn.addEventListener('click', () => {
+    const openSettingsQuickBtns = card.querySelectorAll('.open-settings-quick-btn');
+    openSettingsQuickBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
         audio.init();
         settingsModal.classList.add('open');
-        geminiApiKeyInput.focus();
+        settingsModal.style.display = 'flex';
+      });
+    });
+
+    const triggerCamBtn = card.querySelector('.trigger-device-camera-btn');
+    if (triggerCamBtn) {
+      triggerCamBtn.addEventListener('click', () => {
+        audio.init();
+        openDeviceCamera();
+      });
+    }
+
+    const triggerCalcBtn = card.querySelector('.trigger-device-calc-btn');
+    if (triggerCalcBtn) {
+      triggerCalcBtn.addEventListener('click', () => {
+        audio.init();
+        openCyberCalculator();
       });
     }
 

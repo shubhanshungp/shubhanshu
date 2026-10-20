@@ -359,6 +359,7 @@
           <form class="prompt-bar" id="promptForm">
             <div class="input-glow-wrapper">
               <input type="file" id="fileAttachmentInput" style="display:none;" accept="image/*,.pdf,.txt,.js,.py,.html,.css,.json,.md,.csv,.log">
+              <input type="file" id="nativeCameraInput" style="display:none;" accept="image/*" capture="environment">
               <button type="button" class="inline-attach-btn" id="attachFileBtn" title="Upload Image / Document / Code for Analysis (📎)">
                 <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
@@ -803,6 +804,73 @@
       </div>
     </div>
   </div>
+  <!-- ARYA CYBER CAMERA VIEW MODAL (Mobile, iOS & Desktop Live Viewfinder) -->
+  <div class="modal-backdrop" id="cameraModal">
+    <div class="modal-card camera-box" style="max-width: 480px; width: 95%;">
+      <div class="modal-header">
+        <div class="modal-title">
+          <span class="cyan-bullet">■</span>
+          <span>OPTICAL SENSOR // LIVE CAMERA FEED</span>
+        </div>
+        <button class="close-modal-btn" id="closeCameraModalBtn">&times;</button>
+      </div>
+      <div class="modal-body" style="text-align:center;">
+        <div style="position:relative; width:100%; aspect-ratio:4/3; background:#000; border-radius:8px; overflow:hidden; border:1px solid var(--cyan-neon);">
+          <video id="cameraVideo" autoplay playsinline muted style="width:100%; height:100%; object-fit:cover;"></video>
+          <canvas id="cameraCanvas" style="display:none;"></canvas>
+          <div style="position:absolute; inset:0; pointer-events:none; border:2px dashed rgba(0,240,255,0.4); margin:15px; border-radius:6px;"></div>
+        </div>
+        <div id="cameraStatusMsg" style="font-size:11px; color:#aaa; margin-top:8px;">Optical sensor stream active.</div>
+        <div style="display:flex; justify-content:center; gap:10px; margin-top:12px;">
+          <button type="button" class="hud-btn primary" id="capturePhotoBtn">
+            <span>📸 CAPTURE PHOTO</span>
+          </button>
+          <button type="button" class="hud-btn secondary" id="switchCameraDeviceBtn">
+            <span>🔄 FLIP LENS</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ARYA HUD CYBER CALCULATOR MODAL -->
+  <div class="modal-backdrop" id="calculatorModal">
+    <div class="modal-card calc-box" style="max-width: 340px; width: 90%;">
+      <div class="modal-header">
+        <div class="modal-title">
+          <span class="cyan-bullet">■</span>
+          <span>COMPUTATION MATRIX // CALCULATOR</span>
+        </div>
+        <button class="close-modal-btn" id="closeCalculatorModalBtn">&times;</button>
+      </div>
+      <div class="modal-body" style="padding:15px;">
+        <input type="text" id="calcDisplay" readonly value="0" style="width:100%; height:46px; font-size:22px; text-align:right; font-family:monospace; background:rgba(0,10,20,0.9); border:1px solid var(--cyan-neon); color:var(--cyan-neon); padding:0 12px; border-radius:6px; margin-bottom:12px; box-shadow:inset 0 0 10px rgba(0,240,255,0.2);">
+        <div class="calc-keypad" style="display:grid; grid-template-columns:repeat(4, 1fr); gap:8px;">
+          <button type="button" class="hud-btn secondary calc-key" data-k="C" style="color:#ff6b7a;">C</button>
+          <button type="button" class="hud-btn secondary calc-key" data-k="(">(</button>
+          <button type="button" class="hud-btn secondary calc-key" data-k=")">)</button>
+          <button type="button" class="hud-btn secondary calc-key" data-k="/" style="color:var(--cyan-neon);">÷</button>
+          <button type="button" class="hud-btn secondary calc-key" data-k="7">7</button>
+          <button type="button" class="hud-btn secondary calc-key" data-k="8">8</button>
+          <button type="button" class="hud-btn secondary calc-key" data-k="9">9</button>
+          <button type="button" class="hud-btn secondary calc-key" data-k="*" style="color:var(--cyan-neon);">×</button>
+          <button type="button" class="hud-btn secondary calc-key" data-k="4">4</button>
+          <button type="button" class="hud-btn secondary calc-key" data-k="5">5</button>
+          <button type="button" class="hud-btn secondary calc-key" data-k="6">6</button>
+          <button type="button" class="hud-btn secondary calc-key" data-k="-" style="color:var(--cyan-neon);">-</button>
+          <button type="button" class="hud-btn secondary calc-key" data-k="1">1</button>
+          <button type="button" class="hud-btn secondary calc-key" data-k="2">2</button>
+          <button type="button" class="hud-btn secondary calc-key" data-k="3">3</button>
+          <button type="button" class="hud-btn secondary calc-key" data-k="+" style="color:var(--cyan-neon);">+</button>
+          <button type="button" class="hud-btn secondary calc-key" data-k="0">0</button>
+          <button type="button" class="hud-btn secondary calc-key" data-k=".">.</button>
+          <button type="button" class="hud-btn secondary calc-key" data-k="DEL">⌫</button>
+          <button type="button" class="hud-btn primary calc-key" data-k="=" style="font-weight:bold;">=</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script src="js/audioEffects.js"></script>
   <script src="js/visualizer.js"></script>
   <script src="js/voice.js"></script>

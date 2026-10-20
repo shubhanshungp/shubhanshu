@@ -111,41 +111,54 @@ class AryaAIService {
       .replace(/\s+(?:app|application|ऐप|एप्लीकेशन)$/i, '')
       .trim();
 
-    // 1. WhatsApp
+    // 1. WhatsApp (Cross-Platform Mobile Universal Link + Android Intent + Web)
     if (['whatsapp', 'whats app', 'wa', 'व्हाट्सएप', 'व्हाट्सऐप', 'वाट्सएप', 'वाट्सऐप'].includes(clean) || clean.includes('whatsapp') || clean.includes('व्हाट्सएप')) {
       return {
         name: 'WhatsApp',
-        deepLink: 'whatsapp://',
+        universalUrl: 'https://wa.me/',
+        mobileUrl: 'https://wa.me/',
+        iosDeepLink: 'https://wa.me/',
+        androidDeepLink: 'whatsapp://send',
+        androidIntent: 'intent://send#Intent;package=com.whatsapp;scheme=whatsapp;end',
         webFallback: 'https://web.whatsapp.com/',
-        mobileUrl: 'https://wa.me/'
+        deepLink: 'whatsapp://'
       };
     }
 
-    // 2. YouTube
+    // 2. YouTube (Universal Link for iOS/Android + Native App Intercept)
     if (['youtube', 'yt', 'यूट्यूब', 'यूूट्यूब'].includes(clean) || clean.includes('youtube') || clean.includes('यूट्यूब')) {
       return {
         name: 'YouTube',
-        deepLink: 'vnd.youtube://',
-        webFallback: 'https://www.youtube.com'
+        universalUrl: 'https://www.youtube.com',
+        mobileUrl: 'https://www.youtube.com',
+        iosDeepLink: 'youtube://',
+        androidDeepLink: 'https://www.youtube.com',
+        androidIntent: 'intent://www.youtube.com/#Intent;package=com.google.android.youtube;scheme=https;end',
+        webFallback: 'https://www.youtube.com',
+        deepLink: 'https://www.youtube.com'
       };
     }
 
-    // 3. Camera
+    // 3. Camera (Device Native Viewfinder & AR HUD Mode)
     if (['camera', 'cam', 'webcam', 'कैमरा', 'कैम'].includes(clean)) {
       return {
         name: 'Camera',
-        deepLink: 'camera:',
-        isCamera: true
+        isCamera: true,
+        universalUrl: '#camera',
+        deepLink: '#camera'
       };
     }
 
-    // 4. Calculator
+    // 4. Calculator (HUD Cyber Calculator + Google Calculator)
     if (['calculator', 'calc', 'कैलकुलेटर', 'हिसाब'].includes(clean)) {
       return {
         name: 'Calculator',
-        deepLink: 'calc:',
         isCalculator: true,
-        webFallback: 'https://www.google.com/search?q=calculator'
+        universalUrl: 'https://www.google.com/search?q=calculator',
+        mobileUrl: 'https://www.google.com/search?q=calculator',
+        androidIntent: 'intent:#Intent;action=android.intent.action.MAIN;category=android.intent.category.APP_CALCULATOR;end',
+        webFallback: 'https://www.google.com/search?q=calculator',
+        deepLink: 'https://www.google.com/search?q=calculator'
       };
     }
 
@@ -153,17 +166,26 @@ class AryaAIService {
     if (['spotify', 'music', 'gaana', 'गाना', 'म्यूजिक', 'स्पॉटिफाई'].includes(clean)) {
       return {
         name: 'Spotify',
-        deepLink: 'spotify://',
-        webFallback: 'https://open.spotify.com'
+        universalUrl: 'https://open.spotify.com',
+        mobileUrl: 'https://open.spotify.com',
+        iosDeepLink: 'spotify://',
+        androidDeepLink: 'spotify://',
+        androidIntent: 'intent://open.spotify.com/#Intent;package=com.spotify.music;scheme=https;end',
+        webFallback: 'https://open.spotify.com',
+        deepLink: 'spotify://'
       };
     }
 
-    // 6. Google Maps / Maps
+    // 6. Google Maps / Maps / Navigation
     if (['maps', 'map', 'google maps', 'google map', 'नक्शा', 'मैप्स', 'मैप'].includes(clean)) {
       return {
         name: 'Google Maps',
-        deepLink: 'geo:0,0?q=',
-        webFallback: 'https://maps.google.com'
+        universalUrl: 'https://maps.google.com',
+        mobileUrl: 'https://maps.google.com',
+        iosDeepLink: 'https://maps.apple.com',
+        androidDeepLink: 'geo:0,0?q=',
+        webFallback: 'https://maps.google.com',
+        deepLink: 'https://maps.google.com'
       };
     }
 
@@ -171,8 +193,13 @@ class AryaAIService {
     if (['instagram', 'insta', 'इंस्टाग्राम', 'इन्स्टा'].includes(clean)) {
       return {
         name: 'Instagram',
-        deepLink: 'instagram://',
-        webFallback: 'https://www.instagram.com'
+        universalUrl: 'https://www.instagram.com',
+        mobileUrl: 'https://www.instagram.com',
+        iosDeepLink: 'instagram://',
+        androidDeepLink: 'instagram://app',
+        androidIntent: 'intent://instagram.com/#Intent;package=com.instagram.android;scheme=https;end',
+        webFallback: 'https://www.instagram.com',
+        deepLink: 'instagram://'
       };
     }
 
@@ -180,8 +207,12 @@ class AryaAIService {
     if (['telegram', 'tg', 'टेलीग्राम'].includes(clean)) {
       return {
         name: 'Telegram',
-        deepLink: 'tg://',
-        webFallback: 'https://web.telegram.org'
+        universalUrl: 'https://t.me/',
+        mobileUrl: 'https://t.me/',
+        iosDeepLink: 'tg://',
+        androidDeepLink: 'tg://',
+        webFallback: 'https://web.telegram.org',
+        deepLink: 'tg://'
       };
     }
 
@@ -189,16 +220,19 @@ class AryaAIService {
     if (['settings', 'setting', 'preferences', 'सेटिंग्स', 'सेटिंग'].includes(clean)) {
       return {
         name: 'Settings',
-        isSettings: true
+        isSettings: true,
+        universalUrl: '#settings'
       };
     }
 
-    // 10. Chrome / Browser
+    // 10. Chrome / Web Browser
     if (['chrome', 'browser', 'google chrome', 'क्रोम', 'ब्राउज़र'].includes(clean)) {
       return {
-        name: 'Google Chrome',
-        deepLink: 'googlechrome://',
-        webFallback: 'https://www.google.com'
+        name: 'Browser',
+        universalUrl: 'https://www.google.com',
+        mobileUrl: 'https://www.google.com',
+        webFallback: 'https://www.google.com',
+        deepLink: 'https://www.google.com'
       };
     }
 
@@ -206,8 +240,12 @@ class AryaAIService {
     if (['gmail', 'mail', 'email', 'जीमेल', 'ईमेल', 'मेल'].includes(clean)) {
       return {
         name: 'Gmail',
-        deepLink: 'mailto:',
-        webFallback: 'https://mail.google.com'
+        universalUrl: 'mailto:',
+        mobileUrl: 'mailto:',
+        iosDeepLink: 'mailto:',
+        androidDeepLink: 'mailto:',
+        webFallback: 'https://mail.google.com',
+        deepLink: 'mailto:'
       };
     }
 
@@ -215,8 +253,10 @@ class AryaAIService {
     if (['clock', 'alarm', 'timer', 'stopwatch', 'घड़ी', 'अलार्म'].includes(clean)) {
       return {
         name: 'Clock',
-        deepLink: 'clock:',
-        isClock: true
+        isClock: true,
+        universalUrl: '#clock',
+        androidIntent: 'intent:#Intent;action=android.intent.action.SET_ALARM;end',
+        deepLink: '#clock'
       };
     }
 
@@ -224,8 +264,11 @@ class AryaAIService {
     if (['calendar', 'calender', 'कैलेंडर'].includes(clean)) {
       return {
         name: 'Calendar',
-        deepLink: 'calshow:',
-        webFallback: 'https://calendar.google.com'
+        universalUrl: 'https://calendar.google.com',
+        mobileUrl: 'https://calendar.google.com',
+        iosDeepLink: 'calshow:',
+        webFallback: 'https://calendar.google.com',
+        deepLink: 'https://calendar.google.com'
       };
     }
 
@@ -233,6 +276,8 @@ class AryaAIService {
     if (['phone', 'dialer', 'call app', 'फोन', 'डायलर'].includes(clean)) {
       return {
         name: 'Phone Dialer',
+        universalUrl: 'tel:',
+        mobileUrl: 'tel:',
         deepLink: 'tel:'
       };
     }
@@ -241,6 +286,8 @@ class AryaAIService {
     if (['messages', 'sms', 'message app', 'मैसेज ऐप', 'संदेश'].includes(clean)) {
       return {
         name: 'Messages',
+        universalUrl: 'sms:',
+        mobileUrl: 'sms:',
         deepLink: 'sms:'
       };
     }
@@ -249,18 +296,47 @@ class AryaAIService {
     if (['notes', 'notepad', 'नोटपैड', 'नोट्स'].includes(clean)) {
       return {
         name: 'Notes',
-        deepLink: 'notes:',
-        isNotes: true
+        isNotes: true,
+        universalUrl: '#notes',
+        deepLink: '#notes'
+      };
+    }
+
+    // 17. Facebook
+    if (['facebook', 'fb', 'फेसबुक'].includes(clean)) {
+      return {
+        name: 'Facebook',
+        universalUrl: 'https://www.facebook.com',
+        mobileUrl: 'https://www.facebook.com',
+        iosDeepLink: 'fb://',
+        androidDeepLink: 'fb://facewebmodal/f?href=https://www.facebook.com',
+        webFallback: 'https://www.facebook.com',
+        deepLink: 'https://www.facebook.com'
+      };
+    }
+
+    // 18. Twitter / X
+    if (['twitter', 'x', 'ट्विटर'].includes(clean)) {
+      return {
+        name: 'Twitter (X)',
+        universalUrl: 'https://x.com',
+        mobileUrl: 'https://x.com',
+        iosDeepLink: 'twitter://',
+        androidDeepLink: 'twitter://',
+        webFallback: 'https://x.com',
+        deepLink: 'https://x.com'
       };
     }
 
     // Generic Fallback for any other requested app
     const safeName = clean.charAt(0).toUpperCase() + clean.slice(1);
-    const safeScheme = clean.replace(/[^a-z0-9]/gi, '');
+    const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(clean + ' app')}`;
     return {
       name: safeName,
-      deepLink: `${safeScheme}://`,
-      webFallback: `https://www.google.com/search?q=${encodeURIComponent(clean + ' app')}`
+      universalUrl: searchUrl,
+      mobileUrl: searchUrl,
+      webFallback: searchUrl,
+      deepLink: searchUrl
     };
   }
 
@@ -355,8 +431,8 @@ class AryaAIService {
       ? `सर, ${appName} खोला जा रहा है।`
       : `Opening ${appName} for you, ${this.userName}.`;
 
-    const targetUrl = resolved.deepLink || resolved.webFallback || resolved.mobileUrl || '#';
-    const display = `🚀 **UNIVERSAL APP LAUNCH [Cross-Device]:**\n• **Application:** **${appName}**\n• **Status:** Launch protocol dispatched\n• **Direct Launch Link:** [🚀 Open ${appName}](${targetUrl})\n\n*(Natively supported on Android, iOS, Tablet, Smartwatch and Desktop)*`;
+    const targetUrl = resolved.universalUrl || resolved.mobileUrl || resolved.webFallback || resolved.deepLink || '#';
+    const display = `🚀 **UNIVERSAL APP LAUNCH [Cross-Device]:**\n• **Application:** **${appName}**\n• **Status:** Launch protocol dispatched\n• **Direct Launch Link:** [🚀 Open ${appName}](${targetUrl})\n\n*(Optimized for Mobile, iPhone/iPad, Android, Smartwatch, Tablet & Desktop)*`;
 
     return {
       speech,
@@ -364,9 +440,13 @@ class AryaAIService {
       action: 'launch_app',
       data: {
         appName,
-        deepLink: resolved.deepLink || null,
-        webFallback: resolved.webFallback || null,
+        universalUrl: resolved.universalUrl || null,
         mobileUrl: resolved.mobileUrl || null,
+        iosDeepLink: resolved.iosDeepLink || null,
+        androidDeepLink: resolved.androidDeepLink || null,
+        androidIntent: resolved.androidIntent || null,
+        webFallback: resolved.webFallback || null,
+        deepLink: resolved.deepLink || null,
         isCamera: Boolean(resolved.isCamera),
         isCalculator: Boolean(resolved.isCalculator),
         isSettings: Boolean(resolved.isSettings),
@@ -582,7 +662,7 @@ class AryaAIService {
     }
 
     // 1. Check for specific built-in command handlers (Author of this project, diagnostics, notes, math, web actions, protocols)
-    const builtInResult = await this.handleBuiltInCommands(lower, text, isHindi, deviceId, deviceName, targetCity);
+    const builtInResult = await this.handleBuiltInCommands(lower, text, isHindi, deviceId, deviceName, targetCity, userId);
     if (builtInResult) {
       builtInResult.language = lang;
       builtInResult.deviceId = deviceId;
@@ -1423,8 +1503,12 @@ class AryaAIService {
         action: 'open_url',
         data: {
           url: ytSearchUrl,
+          universalUrl: ytSearchUrl,
+          iosDeepLink: 'youtube://',
+          androidIntent: `intent://www.youtube.com/results?search_query=${encodeURIComponent(searchQuery)}#Intent;package=com.google.android.youtube;scheme=https;end`,
           query: searchQuery,
-          platform: 'youtube'
+          platform: 'youtube',
+          appName: 'YouTube'
         }
       };
     }
@@ -1440,11 +1524,15 @@ class AryaAIService {
 
       return {
         speech,
-        display: `▶️ **YOUTUBE LAUNCHED**\n• **URL:** [https://www.youtube.com](https://www.youtube.com)\n*(Launched natively in your default browser)*`,
+        display: `▶️ **YOUTUBE LAUNCHED**\n• **URL:** [https://www.youtube.com](https://www.youtube.com)\n*(Launched natively on Mobile, iOS, Tablet & Desktop)*`,
         action: 'open_url',
         data: {
           url: ytUrl,
-          platform: 'youtube'
+          universalUrl: ytUrl,
+          iosDeepLink: 'youtube://',
+          androidIntent: 'intent://www.youtube.com/#Intent;package=com.google.android.youtube;scheme=https;end',
+          platform: 'youtube',
+          appName: 'YouTube'
         }
       };
     }
@@ -1455,7 +1543,7 @@ class AryaAIService {
   /**
    * Handle fast interactive commands (author/creator, diagnostics, notes, math, web actions, protocols)
    */
-  async handleBuiltInCommands(lower, originalText, isHindi, deviceId = 'default_device', deviceName = 'Primary Device', targetCity = 'Patna') {
+  async handleBuiltInCommands(lower, originalText, isHindi, deviceId = 'default_device', deviceName = 'Primary Device', targetCity = 'Patna', userId = null) {
     // 0. CREATOR / AUTHOR OF THIS PROJECT (Shubhanshu Kumar Srivastav)
     const isProjectAuthorQuery = 
       lower.includes('who created you') || lower.includes('who made you') || 
