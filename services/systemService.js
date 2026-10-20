@@ -820,10 +820,20 @@ Write-Output '${targetPath.replace(/\\/g, '\\\\')}';
 
     const res = await this.runPowerShell(psCode, 10000);
     if (res.success && fs.existsSync(targetPath)) {
-      exec(`start "" "${targetPath}"`, () => {});
-      return { success: true, path: targetPath, filename };
+      if (this.isWindows) {
+        exec(`start "" "${targetPath}"`, () => {});
+      }
+      return { 
+        success: true, 
+        path: targetPath, 
+        filename, 
+        imageUrl: `/api/screenshot/${encodeURIComponent(filename)}` 
+      };
     } else {
-      return { success: false, error: res.stderr || res.error || 'Failed to capture screenshot.' };
+      return { 
+        success: false, 
+        error: res.stderr || res.error || 'Display buffer currently inaccessible or locked.' 
+      };
     }
   }
 

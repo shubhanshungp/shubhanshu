@@ -240,7 +240,78 @@ document.addEventListener('DOMContentLoaded', () => {
     return localStorage.getItem('arya_auth_token') || '';
   }
 
+  // ==========================================================================
+  // AUTO-POPUP FOR LOGIN AFTER 10 SECONDS (FOR GUEST USERS)
+  // ==========================================================================
+  let loginPopupTimer = null;
+  const LOGIN_POPUP_DELAY_MS = 10 * 1000; // 10 seconds
+
+  function scheduleLoginPopup(delayMs = LOGIN_POPUP_DELAY_MS) {
+    if (loginPopupTimer) {
+      clearTimeout(loginPopupTimer);
+      loginPopupTimer = null;
+    }
+
+    // If user is already authenticated, do not schedule
+    if (currentUser || getAuthToken()) return;
+
+    loginPopupTimer = setTimeout(() => {
+      // Re-verify auth state before showing
+      if (currentUser || getAuthToken()) return;
+
+      // Don't show if auth modal is already open
+      if (authModal && authModal.classList.contains('open')) return;
+
+      // If user is currently in active camera viewfinder or admin modal, postpone by 10s
+      if ((cameraModal && cameraModal.classList.contains('open')) ||
+          (adminModal && adminModal.classList.contains('open'))) {
+        scheduleLoginPopup(10 * 1000);
+        return;
+      }
+
+      showLoginPopup(true);
+    }, delayMs);
+  }
+
+  function showLoginPopup(isAutoReminder = true) {
+    if (!authModal) return;
+
+    // Switch to sign-in tab
+    if (authTabSignIn) authTabSignIn.click();
+
+    const noticeEl = document.getElementById('authPromptNotice');
+    if (noticeEl) {
+      if (isAutoReminder) {
+        noticeEl.innerHTML = config.language === 'hi'
+          ? '<span>⏱️ <strong>लॉगिन अनुस्मारक:</strong> अपने चैट्स, वॉइस हिस्ट्री और सेटिंग्स को सुरक्षित रखने के लिए कृपया लॉगिन करें।</span>'
+          : '<span>⏱️ <strong>Session Reminder:</strong> Please sign in to save your personal chats, voice memory, and cross-device sync.</span>';
+        noticeEl.style.display = 'flex';
+      } else {
+        noticeEl.style.display = 'none';
+      }
+    }
+
+    authModal.classList.add('open');
+    authModal.style.display = 'flex';
+
+    try {
+      if (audio && audio.playAcknowledge) audio.playAcknowledge();
+    } catch (e) {}
+
+    const emailField = document.getElementById('signInEmail');
+    if (emailField) {
+      setTimeout(() => emailField.focus(), 300);
+    }
+  }
+
   function setAuthSession(token, user) {
+    if (loginPopupTimer) {
+      clearTimeout(loginPopupTimer);
+      loginPopupTimer = null;
+    }
+    const noticeEl = document.getElementById('authPromptNotice');
+    if (noticeEl) noticeEl.style.display = 'none';
+
     if (token) localStorage.setItem('arya_auth_token', token);
     if (user) {
       currentUser = user;
@@ -278,6 +349,7 @@ document.addEventListener('DOMContentLoaded', () => {
     localStorage.setItem('arya_username', 'Sir');
     if (userNameInput) userNameInput.value = 'Sir';
     updateAuthUI();
+    scheduleLoginPopup(LOGIN_POPUP_DELAY_MS);
   }
 
   // Verify and hydrate current user auth session from server
@@ -752,6 +824,19 @@ document.addEventListener('DOMContentLoaded', () => {
         if (data.action === 'launch_app' || data.action === 'open_app') {
           audio.playAcknowledge();
           launchAppOnDevice(data.data);
+        } else if (data.action === 'device_locked') {
+          audio.playAlert();
+          showDeviceLockOverlay();
+        } else if (data.action === 'battery_status') {
+          audio.playAcknowledge();
+          if (navigator.getBattery) {
+            navigator.getBattery().then(bat => {
+              const pct = Math.round(bat.level * 100);
+              if (hudBattery) hudBattery.textContent = `${pct}% ${bat.charging ? '⚡' : ''}`;
+            }).catch(() => {});
+          }
+        } else if (data.action === 'screenshot_captured') {
+          audio.playAcknowledge();
         } else if (data.action === 'open_url' && data.data && data.data.url) {
           audio.playAcknowledge();
           launchAppOnDevice(data.data);
@@ -1006,6 +1091,30 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
+  // Cyber HUD Device Lock Overlay (for Mobile & Tablet session lock)
+  function showDeviceLockOverlay() {
+    let lockEl = document.getElementById('deviceLockOverlay');
+    if (!lockEl) {
+      lockEl = document.createElement('div');
+      lockEl.id = 'deviceLockOverlay';
+      lockEl.style.cssText = 'position:fixed; inset:0; z-index:999999; background:rgba(3,7,18,0.96); backdrop-filter:blur(15px); display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:20px; font-family:var(--font-hud);';
+      lockEl.innerHTML = `
+        <div style="font-size:48px; margin-bottom:12px; filter:drop-shadow(0 0 20px #00f0ff);">🔒</div>
+        <div style="font-size:20px; font-weight:800; color:#00f0ff; letter-spacing:2px; margin-bottom:8px;">ARYA // DEVICE SECURE LOCK</div>
+        <div style="font-size:13px; color:#94a3b8; max-width:320px; margin-bottom:24px; line-height:1.5;">This device session has been locked for security. Tap below to unlock.</div>
+        <button type="button" class="hud-btn primary" id="unlockDeviceBtn" style="padding:12px 28px; font-size:13px; font-weight:800;">
+          <span>🔓 UNLOCK DEVICE</span>
+        </button>
+      `;
+      document.body.appendChild(lockEl);
+      document.getElementById('unlockDeviceBtn').addEventListener('click', () => {
+        audio.init();
+        audio.playAcknowledge();
+        lockEl.remove();
+      });
+    }
+  }
+
   // Client-side Cross-Platform App Launcher
   function launchAppOnDevice(appData) {
     if (!appData) return;
@@ -1029,6 +1138,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (appData.isCalculator) {
       openCyberCalculator();
+      return;
+    }
+
+    if (appData.isNotes) {
+      if (window.innerWidth <= 1100) {
+        const notesTab = document.querySelector('.mobile-tab-btn[data-tab="right-panel"]');
+        if (notesTab) notesTab.click();
+      }
+      const noteInput = document.getElementById('newNoteInput');
+      if (noteInput) {
+        setTimeout(() => noteInput.focus(), 300);
+      }
+      return;
+    }
+
+    if (appData.isClock) {
+      const clockVal = document.getElementById('hudClock');
+      if (clockVal) {
+        clockVal.style.color = '#00f0ff';
+        clockVal.style.textShadow = '0 0 12px #00f0ff';
+        setTimeout(() => { clockVal.style.color = ''; clockVal.style.textShadow = ''; }, 3000);
+      }
       return;
     }
 
@@ -1578,11 +1709,7 @@ document.addEventListener('DOMContentLoaded', () => {
       audio.init();
       if (!currentUser) {
         // Direct click on "Sign In" when not logged in -> directly opens Login & Register modal!
-        if (authModal) {
-          authModal.classList.add('open');
-          authModal.style.display = 'flex';
-          if (authTabSignIn) authTabSignIn.click();
-        }
+        showLoginPopup(false);
       } else {
         // Once logged in by user -> show profile dropdown
         if (userDropdownMenu) {
@@ -1605,8 +1732,7 @@ document.addEventListener('DOMContentLoaded', () => {
       e.preventDefault();
       e.stopPropagation();
       if (userDropdownMenu) userDropdownMenu.style.display = 'none';
-      authModal.classList.add('open');
-      authModal.style.display = 'flex';
+      showLoginPopup(false);
     });
   }
 
@@ -1644,6 +1770,9 @@ document.addEventListener('DOMContentLoaded', () => {
     closeAuthModalBtn.addEventListener('click', () => {
       authModal.classList.remove('open');
       authModal.style.display = 'none';
+      if (!currentUser && !getAuthToken()) {
+        scheduleLoginPopup(LOGIN_POPUP_DELAY_MS);
+      }
     });
   }
   if (authModal) {
@@ -1651,6 +1780,9 @@ document.addEventListener('DOMContentLoaded', () => {
       if (e.target === authModal) {
         authModal.classList.remove('open');
         authModal.style.display = 'none';
+        if (!currentUser && !getAuthToken()) {
+          scheduleLoginPopup(LOGIN_POPUP_DELAY_MS);
+        }
       }
     });
   }
@@ -2706,14 +2838,42 @@ document.addEventListener('DOMContentLoaded', () => {
     formatted = formatted.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
     // Italics
     formatted = formatted.replace(/\*([^*]+)\*/g, '<em>$1</em>');
-    // Markdown links [text](url)
-    formatted = formatted.replace(/\[([^\]]+)\]\((https?:\/\/[^\s\)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" style="color:var(--cyan-neon); text-decoration:underline; font-weight:600; text-underline-offset:2px;">$1 ↗</a>');
+    // Markdown Images ![alt](url)
+    formatted = formatted.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<div style="margin:10px 0;"><img src="$2" alt="$1" style="max-width:100%; max-height:360px; object-fit:contain; border-radius:8px; border:1px solid var(--cyan-neon); box-shadow:0 0 15px rgba(0,240,255,0.25); display:block; background:#000;" /></div>');
+    // Markdown links [text](url) - supports https, http, relative URLs (/api/...) and hash links (#camera, #notes)
+    formatted = formatted.replace(/\[([^\]]+)\]\((https?:\/\/[^\s\)]+|[#\/][^\s\)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="hud-inline-link" style="color:var(--cyan-neon); text-decoration:underline; font-weight:600; text-underline-offset:2px;">$1 ↗</a>');
     // Bullet points
     formatted = formatted.replace(/^•\s+(.+)$/gm, '<li style="margin-left:14px;">$1</li>');
     // Code blocks / inline code
     formatted = formatted.replace(/`([^`]+)`/g, '<code style="background:rgba(0,240,255,0.15); color:#00f0ff; padding:2px 4px; border-radius:3px;">$1</code>');
     return formatted;
   }
+
+  // Global interceptor for HUD inline action links (#camera, #calculator, #notes, #settings)
+  document.addEventListener('click', (e) => {
+    const link = e.target.closest('a');
+    if (!link) return;
+    const href = link.getAttribute('href');
+    if (!href) return;
+    if (href === '#camera') {
+      e.preventDefault();
+      openDeviceCamera();
+    } else if (href === '#calculator') {
+      e.preventDefault();
+      openCyberCalculator();
+    } else if (href === '#notes') {
+      e.preventDefault();
+      if (window.innerWidth <= 1100) {
+        const notesTab = document.querySelector('.mobile-tab-btn[data-tab="right-panel"]');
+        if (notesTab) notesTab.click();
+      }
+      const noteInput = document.getElementById('newNoteInput');
+      if (noteInput) setTimeout(() => noteInput.focus(), 300);
+    } else if (href === '#settings') {
+      e.preventDefault();
+      if (settingsModal) settingsModal.classList.add('open');
+    }
+  });
 
   // Load initial data from MongoDB & Server
   verifyCurrentAuthSession();
@@ -2722,6 +2882,9 @@ document.addEventListener('DOMContentLoaded', () => {
   loadNotes();
   loadHistory();
   fetchNetworkInfo();
+
+  // Schedule automatic login popup after 10 seconds for guest sessions
+  scheduleLoginPopup(LOGIN_POPUP_DELAY_MS);
 
   // Initial Startup Audio Context & Always-On Mic Activation on First Interaction
   let hasActivatedUserSession = false;

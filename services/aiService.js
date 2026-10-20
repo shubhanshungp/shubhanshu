@@ -354,8 +354,9 @@ class AryaAIService {
         .replace(/^(?:the|what\s+is|tell\s+me|current|aaj\s+ka)\s+/i, '')
         .replace(/\s+(?:city|village|town|district)$/i, '')
         .trim();
-      const ignoreWords = ['current', 'today', 'live', 'real', 'atmosphere', 'what', 'aaj', 'abhi', 'ab', 'weather', 'time', 'date', 'mausam', 'tapman', 'samay', 'it', 'is'];
-      if (candidate.length >= 2 && !ignoreWords.includes(candidate.toLowerCase())) {
+      const ignoreWords = ['current', 'today', 'live', 'real', 'atmosphere', 'what', 'aaj', 'abhi', 'ab', 'weather', 'time', 'date', 'mausam', 'tapman', 'samay', 'it', 'is', 'the', 'a', 'an', 'in', 'at', 'for', 'of', 'this', 'that', 'my', 'your', 'our', 'here', 'there', 'please', 'tell', 'me', 'kya', 'hai'];
+      const cleanCandidate = candidate.toLowerCase();
+      if (cleanCandidate.length >= 2 && !ignoreWords.includes(cleanCandidate)) {
         return candidate;
       }
     }
@@ -667,7 +668,7 @@ class AryaAIService {
     }
 
     // 0.3 SYSTEM COMMANDS & DEEP OS ACCESS (Apps, Folders, Files, Hardware, Terminal, Process Management)
-    const systemResult = await this.handleSystemCommands(lower, text, isHindi, deviceId, deviceName);
+    const systemResult = await this.handleSystemCommands(lower, text, isHindi, deviceId, deviceName, devicePlatform, deviceType, isLocalHost);
     if (systemResult) {
       systemResult.language = lang;
       systemResult.deviceId = deviceId;
@@ -676,7 +677,7 @@ class AryaAIService {
     }
 
     // 1. Check for specific built-in command handlers (Author of this project, diagnostics, notes, math, web actions, protocols)
-    const builtInResult = await this.handleBuiltInCommands(lower, text, isHindi, deviceId, deviceName, targetCity, userId);
+    const builtInResult = await this.handleBuiltInCommands(lower, text, isHindi, deviceId, deviceName, targetCity, userId, devicePlatform, deviceType, isLocalHost);
     if (builtInResult) {
       builtInResult.language = lang;
       builtInResult.deviceId = deviceId;
@@ -867,36 +868,50 @@ class AryaAIService {
    * - File system operations (listing, reading, creating, deleting files and folders)
    * - Direct terminal / PowerShell command execution
    */
-  async handleSystemCommands(lower, originalText, isHindi) {
+  async handleSystemCommands(lower, originalText, isHindi, deviceId = 'default_device', deviceName = 'Primary Device', devicePlatform = 'windows', deviceType = 'desktop', isLocalHost = true) {
+    const isMobileClient = devicePlatform === 'ios' || devicePlatform === 'android' || deviceType === 'mobile' || deviceType === 'tablet' || deviceId?.startsWith('mob_') || deviceId?.startsWith('tab_');
+    const isDesktopWorkstation = !isMobileClient && (isLocalHost || devicePlatform === 'windows' || devicePlatform === 'mac' || devicePlatform === 'linux' || deviceType === 'desktop');
+
     // 1. SCREENSHOT CAPTURE
     if (lower.includes('screenshot') || lower.includes('screen shot') || lower.includes('स्क्रीनशॉट') || lower.includes('स्क्रीन कैप्चर')) {
       const ssRes = await systemService.takeScreenshot();
       if (ssRes.success) {
+        const imgLink = `/api/screenshot/${encodeURIComponent(ssRes.filename)}`;
         return {
           speech: isHindi 
-            ? `सर, मैंने स्क्रीनशॉट ले लिया है और इसे पिक्चर्स फ़ोल्डर में सुरक्षित कर दिया गया है।`
-            : `Screenshot captured and saved to your Pictures folder, ${this.userName}.`,
-          display: `📸 **SCREENSHOT CAPTURED**\n• **File:** \`${ssRes.filename}\`\n• **Saved Location:** \`${ssRes.path}\`\n*(Automatically opened in Windows Photo Viewer)*`,
+            ? (isDesktopWorkstation ? `सर, स्क्रीनशॉट ले लिया गया है और इसे पिक्चर्स फ़ोल्डर में सुरक्षित कर दिया गया है।` : `सर, वर्कस्टेशन स्क्रीनशॉट कैप्चर कर आपके मोबाइल स्क्रीन पर प्रदर्शित कर दिया गया है।`)
+            : (isDesktopWorkstation ? `Screenshot captured and saved to your Pictures folder, ${this.userName}.` : `Workstation screen captured and synced to your mobile screen, ${this.userName}.`),
+          display: `📸 **SCREENSHOT CAPTURED [${isDesktopWorkstation ? 'Workstation' : deviceName}]:**\n• **File:** \`${ssRes.filename}\`\n• **Direct Link:** [View High-Res Screenshot](${imgLink})\n\n![Screenshot](${imgLink})`,
           action: 'screenshot_captured',
-          data: ssRes
+          data: { ...ssRes, imageUrl: imgLink, isDesktopWorkstation }
         };
       } else {
         return {
-          speech: isHindi ? `स्क्रीनशॉट लेने में समस्या आई, सर।` : `Unable to capture screenshot, ${this.userName}.`,
-          display: `⚠️ **Screenshot Error:** ${ssRes.error}`,
+          speech: isHindi ? `स्क्रीनशॉट लेने में समस्या आई, सर। डिस्प्ले लॉक हो सकता है।` : `Unable to capture screenshot, ${this.userName}. Display may be locked.`,
+          display: `⚠️ **Screenshot Notice:** ${ssRes.error || 'Display buffer could not be captured.'}`,
           action: 'system_error'
         };
       }
     }
 
-    // 2. LOCK COMPUTER / WORKSTATION
-    if (lower.includes('lock pc') || lower.includes('lock screen') || lower.includes('lock computer') || lower.includes('lock workstation') || lower.includes('स्क्रीन लॉक') || lower.includes('कंप्यूटर लॉक') || lower.includes('पीसी लॉक')) {
-      await systemService.lockSystem();
-      return {
-        speech: isHindi ? `सर, कंप्यूटर को तुरंत लॉक कर दिया गया है।` : `Workstation locked immediately, ${this.userName}.`,
-        display: `🔒 **SYSTEM WORKSTATION LOCKED**\nSecurity protocol engaged. System access locked.`,
-        action: 'system_locked'
-      };
+    // 2. LOCK COMPUTER / WORKSTATION / MOBILE DEVICE
+    if (lower.includes('lock pc') || lower.includes('lock screen') || lower.includes('lock computer') || lower.includes('lock workstation') || lower.includes('lock device') || lower.includes('स्क्रीन लॉक') || lower.includes('कंप्यूटर लॉक') || lower.includes('पीसी लॉक')) {
+      if (isDesktopWorkstation) {
+        await systemService.lockSystem();
+        return {
+          speech: isHindi ? `सर, कंप्यूटर वर्कस्टेशन को तुरंत लॉक कर दिया गया है।` : `Workstation locked immediately, ${this.userName}.`,
+          display: `🔒 **SYSTEM WORKSTATION LOCKED**\nSecurity protocol engaged. System access locked on screen.`,
+          action: 'system_locked',
+          data: { isDesktopWorkstation: true }
+        };
+      } else {
+        return {
+          speech: isHindi ? `सर, आपके मोबाइल डिवाइस पर आर्या स्क्रीन लॉक कर दी गई है।` : `Security protocol engaged. ARYA screen locked on your device, ${this.userName}.`,
+          display: `🔒 **DEVICE SECURITY LOCK [${deviceName}]:**\n• **Active System:** ${deviceName} (${devicePlatform.toUpperCase()})\n• **Status:** ARYA secure session locked.\n• To resume interaction, tap the screen or sign in.`,
+          action: 'device_locked',
+          data: { isDesktopWorkstation: false }
+        };
+      }
     }
 
     // 3. VOLUME CONTROLS
@@ -928,14 +943,25 @@ class AryaAIService {
     // 4. BATTERY STATUS
     if (lower === 'battery' || lower.includes('battery status') || lower.includes('battery percentage') || lower.includes('how much battery') || lower.includes('battery level') || lower.includes('बैटरी')) {
       const bat = await systemService.getBatteryStatus();
-      return {
-        speech: isHindi 
-          ? `सर, बैटरी अभी ${bat.percent}% है और यह ${bat.status} मोड में है।`
-          : `Battery is currently at ${bat.percent}%, running on ${bat.status}, ${this.userName}.`,
-        display: `🔋 **SYSTEM BATTERY STATUS:**\n• **Charge Level:** **${bat.percent}%**\n• **State:** ${bat.status}\n• **AC Connected:** ${bat.isCharging ? 'YES ⚡' : 'NO'}`,
-        action: 'battery_status',
-        data: bat
-      };
+      if (isDesktopWorkstation) {
+        return {
+          speech: isHindi 
+            ? `सर, आपके लैपटॉप की बैटरी ${bat.percent}% है और यह ${bat.status} मोड में है।`
+            : `Workstation battery is currently at ${bat.percent}%, running on ${bat.status}, ${this.userName}.`,
+          display: `🔋 **WORKSTATION BATTERY STATUS [Laptop]:**\n• **Charge Level:** **${bat.percent}%**\n• **Power State:** ${bat.status}\n• **AC Connected:** ${bat.isCharging ? 'YES ⚡' : 'NO'}`,
+          action: 'battery_status',
+          data: { ...bat, isDesktopWorkstation: true }
+        };
+      } else {
+        return {
+          speech: isHindi 
+            ? `सर, आपके मोबाइल डिवाइस का बैटरी स्तर स्क्रीन पर सिंक कर दिया गया है।`
+            : `Mobile device battery sensor synced to your HUD, ${this.userName}.`,
+          display: `🔋 **MOBILE BATTERY TELEMETRY [${deviceName}]:**\n• **Active System:** **${deviceName}** (${devicePlatform.toUpperCase()})\n• **Workstation Host:** ${bat.percent}% (${bat.status})\n*(Hardware battery telemetry active in top bar)*`,
+          action: 'battery_status',
+          data: { ...bat, isDesktopWorkstation: false }
+        };
+      }
     }
 
     // 5. DISK SPACE / STORAGE STATUS
@@ -944,14 +970,25 @@ class AryaAIService {
       if (disk.success && disk.drives && disk.drives.length > 0) {
         const driveRows = disk.drives.map(d => `• **Drive ${d.Name}:** ${d.FreeGB} GB Free / ${d.TotalGB} GB Total (${d.PercentFree}% free)`).join('\n');
         const primary = disk.drives[0];
-        return {
-          speech: isHindi
-            ? `सर, ड्राइव ${primary.Name} में ${primary.FreeGB} जीबी खाली जगह है, कुल ${primary.TotalGB} जीबी में से।`
-            : `Drive ${primary.Name} has ${primary.FreeGB} gigabytes free out of ${primary.TotalGB} GB, ${this.userName}.`,
-          display: `💾 **STORAGE / DRIVE TELEMETRY:**\n${driveRows}`,
-          action: 'disk_space',
-          data: disk.drives
-        };
+        if (isDesktopWorkstation) {
+          return {
+            speech: isHindi
+              ? `सर, ड्राइव ${primary.Name} में ${primary.FreeGB} जीबी खाली जगह है, कुल ${primary.TotalGB} जीबी में से।`
+              : `Drive ${primary.Name} has ${primary.FreeGB} gigabytes free out of ${primary.TotalGB} GB, ${this.userName}.`,
+            display: `💾 **STORAGE / DRIVE TELEMETRY [Workstation]:**\n${driveRows}`,
+            action: 'disk_space',
+            data: { drives: disk.drives, isDesktopWorkstation: true }
+          };
+        } else {
+          return {
+            speech: isHindi
+              ? `सर, मोबाइल लोकल कैशे एवं वर्कस्टेशन ड्राइव ${primary.Name} में ${primary.FreeGB} जीबी खाली है।`
+              : `Workstation storage has ${primary.FreeGB} gigabytes free out of ${primary.TotalGB} GB, ${this.userName}.`,
+            display: `💾 **STORAGE TELEMETRY [${deviceName} & Workstation]:**\n• **Active Device:** **${deviceName}** (${devicePlatform.toUpperCase()})\n• **MongoDB Cloud Vault:** Operational & Synced\n• **Host Workstation Drives:**\n${driveRows}`,
+            action: 'disk_space',
+            data: { drives: disk.drives, isDesktopWorkstation: false }
+          };
+        }
       }
     }
 
@@ -1029,13 +1066,14 @@ class AryaAIService {
       const listRes = await systemService.listFiles(dirTarget, 20);
       if (listRes.success) {
         const fileRows = listRes.items.map(it => `• \`${it.type}\` **${it.name}** (${it.size})`).join('\n');
+        const scope = isDesktopWorkstation ? 'Workstation Local Files' : `Remote Workstation Files (${deviceName} Access)`;
         return {
           speech: isHindi
             ? `सर, ${dirTarget} में कुल ${listRes.totalInDir} फाइलें हैं। सूची स्क्रीन पर प्रदर्शित है।`
             : `Found ${listRes.totalInDir} items in ${dirTarget}, ${this.userName}. List displayed on screen.`,
-          display: `📂 **FILE EXPLORER // DIRECTORY CONTENTS:**\n• **Path:** \`${listRes.path}\`\n• **Total Items:** ${listRes.totalInDir}\n\n${fileRows || '*Directory is empty*'}\n\n*(Showing top 20 items)*`,
+          display: `📂 **FILE EXPLORER // ${scope.toUpperCase()}:**\n• **Directory:** \`${listRes.path}\`\n• **Total Items:** ${listRes.totalInDir}\n\n${fileRows || '*Directory is empty*'}\n\n*(Showing top 20 items)*`,
           action: 'files_listed',
-          data: listRes
+          data: { ...listRes, isDesktopWorkstation }
         };
       }
     }
@@ -1557,7 +1595,7 @@ class AryaAIService {
   /**
    * Handle fast interactive commands (author/creator, diagnostics, notes, math, web actions, protocols)
    */
-  async handleBuiltInCommands(lower, originalText, isHindi, deviceId = 'default_device', deviceName = 'Primary Device', targetCity = 'Patna', userId = null) {
+  async handleBuiltInCommands(lower, originalText, isHindi, deviceId = 'default_device', deviceName = 'Primary Device', targetCity = 'Patna', userId = null, devicePlatform = 'windows', deviceType = 'desktop', isLocalHost = true) {
     // 0. CREATOR / AUTHOR OF THIS PROJECT (Shubhanshu Kumar Srivastav)
     const isProjectAuthorQuery = 
       lower.includes('who created you') || lower.includes('who made you') || 
@@ -1828,7 +1866,10 @@ class AryaAIService {
 
     // 4. ATMOSPHERIC WEATHER & TEMPERATURE (Live data via wttr.in for target city or village)
     if (lower.includes('weather') || lower.includes('temperature') || lower.includes('mausam') || lower.includes('tapman') || lower.includes('मौसम') || lower.includes('तापमान')) {
-      const effectiveCity = this.extractCityFromPrompt(originalText, targetCity || 'Patna');
+      let effectiveCity = this.extractCityFromPrompt(originalText, targetCity || 'Patna');
+      if (!effectiveCity || effectiveCity.toLowerCase() === 'the' || effectiveCity.length < 2) {
+        effectiveCity = targetCity || 'Patna';
+      }
       const weather = await this.fetchRealWeather(effectiveCity);
 
       if (isHindi) {

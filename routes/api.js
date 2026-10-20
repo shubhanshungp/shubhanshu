@@ -979,6 +979,43 @@ router.get('/gemini/status', (req, res) => {
   });
 });
 
+// Serve captured screenshot images
+router.get('/screenshot/latest', (req, res) => {
+  try {
+    const screenshotsDir = path.join(systemService.picturesDir, 'Screenshots');
+    if (!fs.existsSync(screenshotsDir)) {
+      return res.status(404).json({ error: 'No screenshots taken yet.' });
+    }
+    const files = fs.readdirSync(screenshotsDir)
+      .filter(f => f.startsWith('ARYA_Screenshot_') && f.endsWith('.png'))
+      .map(f => ({ name: f, time: fs.statSync(path.join(screenshotsDir, f)).mtimeMs }))
+      .sort((a, b) => b.time - a.time);
+
+    if (files.length === 0) {
+      return res.status(404).json({ error: 'No screenshots found.' });
+    }
+    res.setHeader('Content-Type', 'image/png');
+    res.sendFile(path.join(screenshotsDir, files[0].name));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/screenshot/:filename', (req, res) => {
+  try {
+    const rawFilename = path.basename(req.params.filename);
+    const screenshotsDir = path.join(systemService.picturesDir, 'Screenshots');
+    const targetFile = path.join(screenshotsDir, rawFilename);
+    if (!fs.existsSync(targetFile)) {
+      return res.status(404).json({ error: 'Screenshot not found.' });
+    }
+    res.setHeader('Content-Type', 'image/png');
+    res.sendFile(targetFile);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // System Direct Control API
 router.post('/system/command', async (req, res) => {
   try {
