@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#030712">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="ARYA.">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="format-detection" content="telephone=no">
+  <title>ARYA. // Artificial Intelligence Interface (Author: Shubhanshu Kumar Srivastav)</title>
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800;900&family=Rajdhani:wght@500;600;700&family=Share+Tech+Mono&family=Noto+Sans+Devanagari:wght@400;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Styles & Icons -->
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='45' fill='%23050b14' stroke='%2300f0ff' stroke-width='4'/><circle cx='50' cy='50' r='20' fill='%2300f0ff'/></svg>">
+  <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='45' fill='%23050b14' stroke='%2300f0ff' stroke-width='4'/><circle cx='50' cy='50' r='20' fill='%2300f0ff'/></svg>">
+</head>
+<body class="sci-fi-grid">
+  <!-- Subtle Scanning Line Effect -->
+  <div class="scanlines"></div>
+  <div class="hud-corners">
+    <div class="corner top-left"></div>
+    <div class="corner top-right"></div>
+    <div class="corner bottom-left"></div>
+    <div class="corner bottom-right"></div>
+  </div>
+
+  <div class="app-container">
+    <!-- INSECURE CONTEXT VOICE NOTICE BANNER FOR MOBILE -->
+    <div id="mobileVoiceNoticeBanner" style="display:none; background:rgba(255,183,3,0.15); border:1px solid var(--gold-stark); border-radius:6px; padding:8px 14px; margin-bottom:10px; font-family:var(--font-hud); font-size:11px; color:#fff; align-items:center; justify-content:space-between; gap:10px; letter-spacing:0.5px;">
+      <div style="display:flex; align-items:center; gap:8px;">
+        <span>🎙️</span>
+        <span>Mobile Voice Notice: Browsers require HTTPS to unlock microphone on other devices.</span>
+      </div>
+      <a id="switchToHttpsBtn" href="#" style="background:var(--gold-stark); color:#000; text-decoration:none; padding:4px 10px; border-radius:4px; font-weight:800; white-space:nowrap; font-size:10px;">SWITCH TO HTTPS (3443)</a>
+    </div>
+
+    <!-- TOP NAVIGATION / HUD HEADER -->
+    <header class="hud-header">
+      <div class="header-left">
+        <div class="logo-mark">
+          <div class="stark-crest"></div>
+          <div class="title-wrap">
+            <h1 class="logo-text">ARYA.</h1>
+            <span class="sub-text">AUTHOR: SHUBHANSHU KUMAR SRIVASTAV</span>
+          </div>
+        </div>
+        <div class="status-pill" id="dbStatusBadge" title="Automatic MongoDB Cloud/Local Synchronization">
+          <span class="pulse-dot active" id="dbPulse"></span>
+          <span class="status-label" id="dbStatusText">MONGODB AUTO-SYNC: ON</span>
+        </div>
+        <div class="status-pill gemini-pill connected" id="geminiStatusBadge" title="ARYA AI Engine Status">
+          <span class="pulse-dot gemini-connected" id="geminiPulse"></span>
+          <span class="status-label" id="geminiStatusText">ARYA AI: ONLINE</span>
+        </div>
+      </div>
+
+      <div class="header-center">
+        <div class="speech-status-banner" id="speechStatusBanner">
+          <span class="status-icon" id="statusIcon">⚡</span>
+          <span class="status-message" id="statusMessage">SYSTEM READY. CLICK ARC REACTOR OR SAY "HEY ARYA"</span>
+        </div>
+      </div>
+
+      <div class="header-right">
+        <div class="hud-telemetry">
+          <div class="telemetry-item">
+            <span class="label" id="clockCityLabel">TIME (PATNA)</span>
+            <span class="value" id="hudClock">--:--:--</span>
+          </div>
+          <div class="telemetry-item">
+            <span class="label" id="dateCityLabel">DATE (PATNA)</span>
+            <span class="value" id="hudDate">--/--/----</span>
+          </div>
+          <div class="telemetry-item battery-item" id="batteryWrap">
+            <span class="label">POWER LEVEL</span>
+            <span class="value" id="hudBattery">100%</span>
+          </div>
+        </div>
+        <div class="user-profile-menu-container">
+          <button class="user-profile-btn" id="headerAuthBtn" title="Account / Sign In">
+            <span class="user-avatar-badge" id="headerUserAvatar">👤</span>
+            <span class="header-user-name" id="headerUserName">Sign In</span>
+          </button>
+          <div class="user-dropdown-menu" id="userDropdownMenu" style="display:none;">
+            <div class="user-dropdown-header">
+              <div class="user-dropdown-title" id="dropdownUserName">Guest User</div>
+              <div class="user-dropdown-subtitle" id="dropdownUserEmail">Guest Session</div>
+            </div>
+            <div class="dropdown-divider"></div>
+            <button type="button" class="dropdown-menu-item" id="dropdownAuthActionBtn">
+              <span class="menu-icon">🔑</span>
+              <span id="dropdownAuthActionText">Sign In / Register</span>
+            </button>
+            <button type="button" class="dropdown-menu-item admin-only-item" id="dropdownAdminBtn" style="display:none;">
+              <span class="menu-icon">🛡️</span>
+              <span>Overseer Console</span>
+            </button>
+            <button type="button" class="dropdown-menu-item" id="dropdownOpenSettingsBtn">
+              <span class="menu-icon">⚙️</span>
+              <span>Preferences</span>
+            </button>
+            <div class="dropdown-divider" id="dropdownLogoutDivider" style="display:none;"></div>
+            <button type="button" class="dropdown-menu-item danger-item" id="dropdownLogoutBtn" style="display:none;">
+              <span class="menu-icon">🚪</span>
+              <span>Sign Out</span>
+            </button>
+          </div>
+        </div>
+        <button class="icon-btn" id="openSettingsBtn" title="System Configuration">
+          <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="2">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- MOBILE / TABLET HUD TAB SWITCHER (Shows on mobile & tablet) -->
+    <nav class="mobile-hud-tabs" id="mobileHudTabs" aria-label="Mobile Navigation">
+      <button type="button" class="mobile-tab-btn active" data-tab="center-stage">
+        <span class="tab-icon">⚡</span>
+        <span class="tab-text">DIALOGUE</span>
+      </button>
+      <button type="button" class="mobile-tab-btn" data-tab="left-panel">
+        <span class="tab-icon">📊</span>
+        <span class="tab-text">SYSTEM</span>
+      </button>
+      <button type="button" class="mobile-tab-btn" data-tab="right-panel">
+        <span class="tab-icon">📝</span>
+        <span class="tab-text">NOTES</span>
+      </button>
+      <button type="button" class="mobile-tab-btn" id="mobileSettingsTabBtn" data-tab="settings">
+        <span class="tab-icon">⚙️</span>
+        <span class="tab-text">SETTINGS</span>
+      </button>
+    </nav>
+
+    <!-- MAIN DASHBOARD CONTENT -->
+    <main class="hud-main">
+      <!-- LEFT PANEL: HARDWARE TELEMETRY & PROTOCOLS -->
+      <aside class="panel left-panel">
+        <div class="panel-header">
+          <span class="panel-title">SYSTEM VITALS</span>
+          <span class="panel-tag">CORE OS</span>
+        </div>
+
+        <div class="vitals-group">
+          <!-- CPU Cores -->
+          <div class="vital-card">
+            <div class="vital-meta">
+              <span class="vital-label">CPU ARCHITECTURE</span>
+              <span class="vital-value" id="cpuModel">LOADING...</span>
+            </div>
+            <div class="metric-row">
+              <span>ACTIVE CORES:</span>
+              <strong id="cpuCores">--</strong>
+            </div>
+          </div>
+
+          <!-- Memory Bar -->
+          <div class="vital-card">
+            <div class="vital-meta">
+              <span class="vital-label">RAM ALLOCATION</span>
+              <span class="vital-value" id="ramRatio">0 / 0 GB</span>
+            </div>
+            <div class="progress-bar-wrap">
+              <div class="progress-fill" id="ramProgress" style="width: 0%;"></div>
+            </div>
+            <div class="metric-row">
+              <span>USAGE:</span>
+              <strong id="ramPercent">0%</strong>
+            </div>
+          </div>
+
+          <!-- Server Uptime -->
+          <div class="vital-card">
+            <div class="vital-meta">
+              <span class="vital-label">SYSTEM UPTIME</span>
+              <span class="vital-value" id="uptimeVal">0h 0m</span>
+            </div>
+            <div class="metric-row">
+              <span>DB AUTO-SAVE:</span>
+              <span class="status-glow-green" id="healthTag">ACTIVE</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- QUICK PROTOCOLS -->
+        <!-- QUICK PROTOCOLS -->
+        <div class="panel-section-title">SYSTEM & QUICK COMMANDS</div>
+        <div class="protocol-grid">
+          <button class="protocol-btn" data-cmd="take a screenshot">
+            <span class="cmd-icon">📸</span>
+            <span>SCREENSHOT</span>
+          </button>
+          <button class="protocol-btn" data-cmd="open notepad">
+            <span class="cmd-icon">📝</span>
+            <span>NOTEPAD</span>
+          </button>
+          <button class="protocol-btn" data-cmd="check disk space">
+            <span class="cmd-icon">💾</span>
+            <span>DISK SPACE</span>
+          </button>
+          <button class="protocol-btn" data-cmd="battery status">
+            <span class="cmd-icon">🔋</span>
+            <span>BATTERY</span>
+          </button>
+          <button class="protocol-btn" data-cmd="show files on desktop">
+            <span class="cmd-icon">📁</span>
+            <span>DESKTOP FILES</span>
+          </button>
+          <button class="protocol-btn" data-cmd="lock pc">
+            <span class="cmd-icon">🔒</span>
+            <span>LOCK PC</span>
+          </button>
+          <button class="protocol-btn" data-cmd="system diagnostics">
+            <span class="cmd-icon">📊</span>
+            <span>DIAGNOSTICS</span>
+          </button>
+          <button class="protocol-btn" data-cmd="नमस्ते आर्या">
+            <span class="cmd-icon">🇮🇳</span>
+            <span>नमस्ते (HINDI)</span>
+          </button>
+          <button class="protocol-btn" data-cmd="समय क्या हुआ है">
+            <span class="cmd-icon">🕒</span>
+            <span>समय (TIME)</span>
+          </button>
+          <button class="protocol-btn" data-cmd="पिछला चैट पढ़ो">
+            <span class="cmd-icon">📜</span>
+            <span>LAST CHAT (DB)</span>
+          </button>
+          <button class="protocol-btn" data-cmd="read previous chat from database">
+            <span class="cmd-icon">💾</span>
+            <span>RECALL CHATS</span>
+          </button>
+          <button class="protocol-btn" data-cmd="open youtube">
+            <span class="cmd-icon">▶️</span>
+            <span>YOUTUBE</span>
+          </button>
+          <button class="protocol-btn" data-cmd="whatsapp open">
+            <span class="cmd-icon">📲</span>
+            <span>WHATSAPP</span>
+          </button>
+          <button class="protocol-btn" data-cmd="what is the weather today">
+            <span class="cmd-icon">🌤️</span>
+            <span>WEATHER</span>
+          </button>
+        </div>
+      </aside>
+
+      <!-- CENTER STAGE: ARC REACTOR CORE & AUDIO VISUALIZER -->
+      <section class="center-stage">
+        <!-- Interactive Arc Reactor Nexus -->
+        <div class="arc-reactor-container" id="reactorContainer">
+          <canvas id="visualizerCanvas" width="460" height="460"></canvas>
+          
+          <!-- Outer Rotating HUD Rings -->
+          <div class="ring outer-ring"></div>
+          <div class="ring dashed-ring"></div>
+          <div class="ring segments-ring">
+            <div class="segment s1"></div>
+            <div class="segment s2"></div>
+            <div class="segment s3"></div>
+            <div class="segment s4"></div>
+            <div class="segment s5"></div>
+            <div class="segment s6"></div>
+            <div class="segment s7"></div>
+            <div class="segment s8"></div>
+          </div>
+          <div class="ring inner-counter-ring"></div>
+
+          <!-- Clickable Reactor Core (Push-to-Talk) -->
+          <button class="reactor-core" id="reactorBtn" title="Click to Talk / Activate Voice Recognition">
+            <div class="core-glow"></div>
+            <div class="core-inner-ring">
+              <svg class="mic-svg" viewBox="0 0 24 24" width="36" height="36" fill="currentColor">
+                <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
+                <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+              </svg>
+            </div>
+            <span class="core-label" id="coreLabel">PUSH TO TALK</span>
+          </button>
+        </div>
+
+        <!-- Voice Mode Status & Controls Under Core -->
+        <div class="core-controls">
+          <!-- Quick Language Switcher Button -->
+          <button class="hud-pill-btn lang-pill active" id="langSwitchBtn" title="Toggle Language (English / हिंदी)">
+            <span class="icon">🌐</span>
+            <span id="langSwitchText">LANG: हिन्दी</span>
+          </button>
+
+          <button class="hud-pill-btn" id="toggleListenModeBtn" title="Toggle Always-On Continuous Microphone">
+            <span class="dot"></span>
+            <span id="listenModeText">ALWAYS-ON MIC: OFF</span>
+          </button>
+
+          <button class="hud-pill-btn" id="toggleMuteVoiceBtn" title="Mute voice responses">
+            <span class="icon">🔊</span>
+            <span id="muteVoiceText">VOICE: ON</span>
+          </button>
+
+          <button class="hud-pill-btn" id="wakeSoundTestBtn" title="Test ARYA Voice">
+            <span class="icon">⚡</span>
+            <span>TEST VOICE</span>
+          </button>
+        </div>
+
+        <!-- LIVE DIALOGUE & TRANSCRIPT TERMINAL -->
+        <div class="dialogue-terminal">
+          <div class="terminal-header">
+            <div class="terminal-dots">
+              <span class="dot red"></span>
+              <span class="dot yellow"></span>
+              <span class="dot green"></span>
+            </div>
+            <span class="terminal-title">LIVE CONVERSATION LOG // AUTO-SAVED TO MONGODB</span>
+            <div class="terminal-actions">
+              <span class="auto-save-pill" id="autoSaveIndicator">
+                <span class="pulse-dot active"></span>
+                <span>AUTO-SAVED</span>
+              </span>
+              <button class="text-action-btn" id="clearHistoryBtn">CLEAR LOG</button>
+            </div>
+          </div>
+
+          <div class="chat-feed" id="chatFeed">
+            <!-- Messages populated dynamically -->
+            <div class="message-card jarvis-msg">
+              <div class="msg-avatar">A</div>
+              <div class="msg-body">
+                <div class="msg-sender">ARYA. <span class="time-stamp">ONLINE</span></div>
+                <div class="msg-text">At your service, Sir. I am ARYA., your personal AI assistant architected by Shubhanshu Kumar Srivastav. Full host system control is active (apps, files, screenshot, hardware), with English & Hindi voice, web intelligence, and MongoDB storage. How may I assist you?</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Attachment Preview Bar -->
+          <div class="attachment-preview-bar" id="attachmentPreviewBar" style="display:none;">
+            <div class="attachment-chip">
+              <span class="attachment-chip-icon" id="attachmentChipIcon">📎</span>
+              <div class="attachment-chip-info">
+                <span class="attachment-chip-name" id="attachmentChipName">document.pdf</span>
+                <span class="attachment-chip-size" id="attachmentChipSize">120 KB</span>
+              </div>
+              <div class="attachment-chip-thumb" id="attachmentChipThumb" style="display:none;"></div>
+              <button type="button" class="attachment-remove-btn" id="attachmentRemoveBtn" title="Remove attachment">✕</button>
+            </div>
+          </div>
+
+          <!-- Bottom Prompt Input Bar -->
+          <form class="prompt-bar" id="promptForm">
+            <div class="input-glow-wrapper">
+              <input type="file" id="fileAttachmentInput" style="display:none;" accept="image/*,.pdf,.txt,.js,.py,.html,.css,.json,.md,.csv,.log">
+              <button type="button" class="inline-attach-btn" id="attachFileBtn" title="Upload Image / Document / Code for Analysis (📎)">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
+                </svg>
+              </button>
+              <input 
+                type="text" 
+                id="userInput" 
+                class="hud-input" 
+                placeholder="Command ARYA in English or Hindi, or upload an image/document (📎)..." 
+                autocomplete="off"
+              >
+              <button type="button" class="inline-mic-btn" id="inlineMicBtn" title="Voice Input">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+                  <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
+                  <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+                </svg>
+              </button>
+            </div>
+            <button type="submit" class="hud-submit-btn" id="sendBtn">
+              <span>TRANSMIT</span>
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M5 12h14M12 5l7 7-7 7"></path>
+              </svg>
+            </button>
+          </form>
+        </div>
+      </section>
+
+      <!-- RIGHT PANEL: MONGODB MEMORIES & COMMAND QUICK-REF -->
+      <aside class="panel right-panel">
+        <div class="panel-header">
+          <span class="panel-title">NEURAL MEMORY BANK</span>
+          <span class="panel-tag">MONGODB AUTO-SAVED</span>
+        </div>
+
+        <!-- Add Memory Note Form -->
+        <div class="note-creator">
+          <input type="text" id="newNoteInput" placeholder="Save memory note..." class="hud-input compact">
+          <button class="add-note-btn" id="saveNoteBtn" title="Auto-Save to MongoDB">+</button>
+        </div>
+
+        <!-- Notes List -->
+        <div class="notes-container" id="notesList">
+          <div class="empty-state">No notes recorded yet. Say "Arya, take a note: ..." or "Note likho: ..."</div>
+        </div>
+
+        <!-- Voice Command Reference Guide -->
+        <div class="panel-section-title">VOICE PROMPTS (ENGLISH & हिन्दी)</div>
+        <div class="command-hints">
+          <div class="hint-card" data-cmd="Explain how artificial intelligence works">
+            <span class="hint-quote">"Explain how AI works"</span>
+            <span class="hint-desc">✨ Arya Ai Answer</span>
+          </div>
+          <div class="hint-card" data-cmd="Who is your creator?">
+            <span class="hint-quote">"Who created you?" / "Author name"</span>
+            <span class="hint-desc">Shubhanshu Kumar Srivastav</span>
+          </div>
+          <div class="hint-card" data-cmd="Who is the author of Wings of Fire?">
+            <span class="hint-quote">"Who is the author of Wings of Fire?"</span>
+            <span class="hint-desc">Live Web Search (Author)</span>
+          </div>
+          <div class="hint-card" data-cmd="गोदान के लेखक कौन हैं?">
+            <span class="hint-quote">"गोदान के लेखक कौन हैं?"</span>
+            <span class="hint-desc">Web Author Search (Hindi)</span>
+          </div>
+          <div class="hint-card" data-cmd="नमस्ते आर्या, आप कैसे हो?">
+            <span class="hint-quote">"नमस्ते आर्या, आप कैसे हो?"</span>
+            <span class="hint-desc">Hindi Conversational Voice</span>
+          </div>
+          <div class="hint-card" data-cmd="Note likho: कल सुबह 10 बजे मीटिंग है">
+            <span class="hint-quote">"Note likho: &lt;task&gt;"</span>
+            <span class="hint-desc">Auto-saves to MongoDB</span>
+          </div>
+          <div class="hint-card" data-cmd="एक चुटकुला सुनाओ">
+            <span class="hint-quote">"एक चुटकुला सुनाओ"</span>
+            <span class="hint-desc">Hindi Humor &amp; Jokes</span>
+          </div>
+          <div class="hint-card" data-cmd="Open YouTube">
+            <span class="hint-quote">"Open YouTube" / "यूट्यूब खोलो"</span>
+            <span class="hint-desc">Launches Web Apps</span>
+          </div>
+        </div>
+      </aside>
+    </main>
+  </div>
+
+  <!-- SETTINGS MODAL HUD -->
+  <div class="modal-backdrop" id="settingsModal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title">
+          <span class="cyan-bullet">■</span>
+          <span>ARYA. CONFIGURATION MATRIX</span>
+        </div>
+        <button class="close-modal-btn" id="closeSettingsBtn">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="setting-row">
+          <label for="userNameInput">Address User As (Title / Name):</label>
+          <input type="text" id="userNameInput" class="hud-input" value="Sir" placeholder="e.g. Sir, Tony, Boss">
+        </div>
+
+        <div class="setting-row">
+          <label for="languageSelect">Voice & Language Interface Mode:</label>
+          <select id="languageSelect" class="hud-select">
+            <option value="en">English (UK / US)</option>
+            <option value="hi">हिन्दी (Hindi / Hinglish)</option>
+          </select>
+          <span class="setting-note">Language can also be toggled anytime via the <b>LANG</b> button on the HUD.</span>
+        </div>
+
+        <div class="setting-row">
+          <label for="voiceSelect">Speech Synthesis Voice Profile:</label>
+          <select id="voiceSelect" class="hud-select">
+            <option value="">Detecting Available Voices...</option>
+          </select>
+        </div>
+
+        <div class="setting-row">
+          <div class="slider-label-row">
+            <label for="voicePitch">Vocal Pitch:</label>
+            <span id="pitchVal">1.0</span>
+          </div>
+          <input type="range" id="voicePitch" min="0.5" max="1.5" step="0.05" value="1.0" class="hud-slider">
+        </div>
+
+        <div class="setting-row">
+          <div class="slider-label-row">
+            <label for="voiceRate">Speech Rate (Speed):</label>
+            <span id="rateVal">1.0</span>
+          </div>
+          <input type="range" id="voiceRate" min="0.7" max="1.4" step="0.05" value="1.0" class="hud-slider">
+        </div>
+
+        <div class="setting-divider"></div>
+
+        <div class="setting-row">
+          <label for="geminiApiKeyInput">
+            <span>✨</span> Google Gemini API Key (Auto-Recognised System Key):
+          </label>
+          <div class="setting-input-group">
+            <input 
+              type="password" 
+              id="geminiApiKeyInput" 
+              class="hud-input" 
+              placeholder="Auto-Recognised System Key Active (or paste custom key)"
+            >
+            <button type="button" class="hud-btn secondary" id="testGeminiKeyBtn">TEST KEY</button>
+          </div>
+          <div id="geminiAutoDetectedBanner" class="gemini-auto-badge" style="display:none; margin-top:6px; font-size:11px; color:#10b981; background:rgba(16,185,129,0.1); border:1px solid rgba(16,185,129,0.3); border-radius:6px; padding:6px 10px;">
+            <span>✨</span> <span id="geminiAutoDetectedText">System Gemini Key Auto-Recognised &amp; Active</span>
+          </div>
+          <div id="geminiTestStatus" class="gemini-test-status" style="margin-top:6px;"></div>
+          <span class="setting-note">
+            Built-in Gemini key is automatically detected from the system environment. Click <strong>TEST KEY</strong> to verify neural connectivity, or optionally paste your personal key from <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" style="color:var(--cyan-neon); text-decoration:underline;">Google AI Studio ↗</a>.
+          </span>
+        </div>
+
+        <div class="setting-divider"></div>
+
+        <div class="setting-row">
+          <div class="setting-checkbox-row">
+            <label for="alwaysOnMicCheckbox" style="margin:0; cursor:pointer;">Always-On Continuous Microphone:</label>
+            <input type="checkbox" id="alwaysOnMicCheckbox" class="hud-checkbox">
+          </div>
+          <span class="setting-note">Keeps microphone active continuously for seamless hands-free conversation.</span>
+        </div>
+
+        <div class="setting-divider"></div>
+
+        <!-- TARGET CITY / VILLAGE SETTING (DATE, TIME & WEATHER) -->
+        <div class="setting-row">
+          <label for="cityInput">
+            <span>📍</span> Target City / Village (Date, Time &amp; Atmospheric Weather):
+          </label>
+          <div class="setting-input-group">
+            <input 
+              type="text" 
+              id="cityInput" 
+              class="hud-input" 
+              placeholder="e.g. Patna, Muzaffarpur, Gaya, Delhi, Mumbai, or your Village"
+              value="Patna"
+            >
+            <button type="button" class="hud-btn secondary" id="testWeatherBtn">CHECK WEATHER</button>
+          </div>
+          <div id="cityWeatherPreview" class="gemini-test-status" style="margin-top:6px; font-size:12px; line-height:1.4;"></div>
+          <div class="quick-cities-pill-row" style="display:flex; flex-wrap:wrap; gap:6px; margin-top:8px;">
+            <button type="button" class="city-pill-btn" data-city="Patna" style="background:rgba(0,240,255,0.12); border:1px solid var(--cyan-neon); color:var(--cyan-neon); padding:4px 10px; border-radius:12px; font-size:11px; cursor:pointer;">📍 Patna (Default)</button>
+            <button type="button" class="city-pill-btn" data-city="Muzaffarpur" style="background:rgba(0,240,255,0.06); border:1px solid rgba(0,240,255,0.3); color:#ccc; padding:4px 10px; border-radius:12px; font-size:11px; cursor:pointer;">Muzaffarpur</button>
+            <button type="button" class="city-pill-btn" data-city="Gaya" style="background:rgba(0,240,255,0.06); border:1px solid rgba(0,240,255,0.3); color:#ccc; padding:4px 10px; border-radius:12px; font-size:11px; cursor:pointer;">Gaya</button>
+            <button type="button" class="city-pill-btn" data-city="Delhi" style="background:rgba(0,240,255,0.06); border:1px solid rgba(0,240,255,0.3); color:#ccc; padding:4px 10px; border-radius:12px; font-size:11px; cursor:pointer;">Delhi</button>
+            <button type="button" class="city-pill-btn" data-city="Mumbai" style="background:rgba(0,240,255,0.06); border:1px solid rgba(0,240,255,0.3); color:#ccc; padding:4px 10px; border-radius:12px; font-size:11px; cursor:pointer;">Mumbai</button>
+            <button type="button" class="city-pill-btn" data-city="Lucknow" style="background:rgba(0,240,255,0.06); border:1px solid rgba(0,240,255,0.3); color:#ccc; padding:4px 10px; border-radius:12px; font-size:11px; cursor:pointer;">Lucknow</button>
+            <button type="button" class="city-pill-btn" data-city="Kolkata" style="background:rgba(0,240,255,0.06); border:1px solid rgba(0,240,255,0.3); color:#ccc; padding:4px 10px; border-radius:12px; font-size:11px; cursor:pointer;">Kolkata</button>
+          </div>
+          <span class="setting-note">
+            Default is set to <strong>Patna</strong>. Enter any city or village to dynamically localize your live Time, Date, and atmospheric Weather across all queries.
+          </span>
+        </div>
+
+        <div class="setting-divider"></div>
+
+        <!-- MULTI-DEVICE DATA ISOLATION -->
+        <div class="setting-row">
+          <label for="deviceNameInput">Current Device Name (Display Alias):</label>
+          <input type="text" id="deviceNameInput" class="hud-input" placeholder="e.g. Living Room PC, iPhone, Work Laptop">
+          <span class="setting-note">Identifies this device when saving chats, notes, and preferences.</span>
+        </div>
+
+        <div class="setting-row">
+          <label for="deviceIdDisplay">Device Partition Identifier (Unique Key):</label>
+          <div class="setting-device-id-group">
+            <input type="text" id="deviceIdDisplay" class="hud-input" readonly>
+            <div class="setting-btn-row">
+              <button type="button" class="hud-btn secondary" id="copyDeviceIdBtn">COPY ID</button>
+              <button type="button" class="hud-btn secondary" id="newDeviceIdBtn" title="Generate new isolated device partition">NEW ID</button>
+            </div>
+          </div>
+          <span class="setting-note">All data (Chats, History, Notes, Preferences) is completely separated per device in MongoDB. Running ARYA across multiple phones, laptops, and tablets keeps each device's data isolated.</span>
+        </div>
+
+        <div class="setting-divider"></div>
+
+        <!-- CONNECT OTHER DEVICES (PHONE / TABLET / LAN) -->
+        <div class="setting-row">
+          <label class="lan-section-title">
+            <span>📱</span> CONNECT OTHER DEVICES (PHONE / TABLET / PC):
+          </label>
+          <span class="setting-note">Connect your phone or other device to the same Wi-Fi / Hotspot and open either URL below in your phone's browser:</span>
+
+          <div class="lan-cards-container">
+            <!-- HTTPS Voice Ready URL -->
+            <div class="lan-url-card https-card">
+              <div class="lan-url-card-header">
+                <strong class="lan-badge https-badge">🔒 SECURE HTTPS (VOICE &amp; MIC READY):</strong>
+                <button type="button" class="hud-btn secondary compact-btn" id="copyHttpsLanBtn">COPY</button>
+              </div>
+              <input type="text" id="httpsLanUrlDisplay" class="hud-input compact lan-url-input" readonly value="Loading...">
+              <span class="setting-note lan-hint">Recommended for phones &amp; tablets: Unlocks microphone speech recognition. Tap 'Advanced -> Proceed' once in your browser.</span>
+            </div>
+
+            <!-- Standard HTTP URL -->
+            <div class="lan-url-card http-card">
+              <div class="lan-url-card-header">
+                <strong class="lan-badge http-badge">🌐 STANDARD HTTP (FAST TEXT &amp; SYSTEM):</strong>
+                <button type="button" class="hud-btn secondary compact-btn" id="copyHttpLanBtn">COPY</button>
+              </div>
+              <input type="text" id="httpLanUrlDisplay" class="hud-input compact lan-url-input" readonly value="Loading...">
+              <span class="setting-note lan-hint">Quick direct link for typing and dashboard controls.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="hud-btn secondary" id="resetSettingsBtn">RESET DEFAULTS</button>
+        <button class="hud-btn primary" id="saveSettingsBtn">SAVE TO MONGODB &amp; SYSTEM</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- AUTHENTICATION MODAL (Sign In & Sign Up - Like Gemini / ChatGPT) -->
+  <div class="modal-backdrop" id="authModal">
+    <div class="modal-card auth-box">
+      <div class="modal-header">
+        <div class="modal-title">
+          <span class="cyan-bullet">■</span>
+          <span>ARYA IDENTITY // SECURE VAULT</span>
+        </div>
+        <button class="close-modal-btn" id="closeAuthModalBtn">&times;</button>
+      </div>
+
+      <div class="auth-tabs-bar">
+        <button type="button" class="auth-tab-btn active" id="authTabSignIn">SIGN IN</button>
+        <button type="button" class="auth-tab-btn" id="authTabSignUp">CREATE ACCOUNT</button>
+      </div>
+
+      <div class="modal-body auth-body">
+        <!-- Sign In Tab Form -->
+        <form id="signInForm" class="auth-form active">
+          <div class="auth-field-group">
+            <label for="signInEmail">Email Address:</label>
+            <input type="email" id="signInEmail" class="hud-input" placeholder="e.g. user@example.com" required autocomplete="email">
+          </div>
+          <div class="auth-field-group">
+            <label for="signInPassword">Password:</label>
+            <input type="password" id="signInPassword" class="hud-input" placeholder="••••••••" required autocomplete="current-password">
+          </div>
+          <div id="signInErrorMsg" class="auth-error-box" style="display:none;"></div>
+          <button type="submit" class="hud-btn primary auth-submit-btn" id="signInSubmitBtn">SIGN IN TO ARYA</button>
+        </form>
+
+        <!-- Sign Up Tab Form -->
+        <form id="signUpForm" class="auth-form" style="display:none;">
+          <div class="auth-field-group">
+            <label for="signUpName">Your Name:</label>
+            <input type="text" id="signUpName" class="hud-input" placeholder="e.g. Shubhanshu" required autocomplete="name">
+          </div>
+          <div class="auth-field-group">
+            <label for="signUpEmail">Email Address:</label>
+            <input type="email" id="signUpEmail" class="hud-input" placeholder="e.g. user@example.com" required autocomplete="email">
+          </div>
+          <div class="auth-field-group">
+            <label for="signUpPassword">Create Password:</label>
+            <input type="password" id="signUpPassword" class="hud-input" placeholder="At least 6 characters" minlength="6" required autocomplete="new-password">
+          </div>
+          <div class="auth-field-group">
+            <label for="signUpCity">Your City / Village (Weather &amp; Time):</label>
+            <input type="text" id="signUpCity" class="hud-input" placeholder="e.g. Patna, Muzaffarpur, Delhi" value="Patna">
+          </div>
+          <div id="signUpErrorMsg" class="auth-error-box" style="display:none;"></div>
+          <button type="submit" class="hud-btn primary auth-submit-btn" id="signUpSubmitBtn">CREATE PRIVATE ACCOUNT</button>
+        </form>
+
+        <div class="auth-security-note">
+          <span>🔒</span> All your chats, memories, attachments, and preferences are strictly isolated to your account in MongoDB.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DISCREET ADMIN OVERSEER CONSOLE (Admin-Only Chat Inspector & Role Promotor) -->
+  <div class="modal-backdrop" id="adminModal">
+    <div class="modal-card admin-box">
+      <div class="modal-header">
+        <div class="modal-title">
+          <span class="cyan-bullet">■</span>
+          <span>OVERSEER CONSOLE // GLOBAL MONITOR</span>
+        </div>
+        <button class="close-modal-btn" id="closeAdminModalBtn">&times;</button>
+      </div>
+
+      <div class="admin-tabs-bar">
+        <button type="button" class="admin-tab-btn active" id="adminTabChatsBtn">
+          <span>💬</span> ALL USER CHATS (<span id="adminTotalChatsBadge">0</span>)
+        </button>
+        <button type="button" class="admin-tab-btn" id="adminTabUsersBtn">
+          <span>👥</span> REGISTERED USERS (<span id="adminTotalUsersBadge">0</span>)
+        </button>
+      </div>
+
+      <div class="modal-body admin-body">
+        <!-- Tab 1: Global Chats Viewer -->
+        <div id="adminChatsTabContent" class="admin-tab-content active">
+          <div class="admin-toolbar">
+            <input type="text" id="adminChatSearchInput" class="hud-input compact" placeholder="Filter by message, email, user, or response...">
+            <button type="button" class="hud-btn secondary compact-btn" id="adminRefreshChatsBtn">REFRESH</button>
+          </div>
+          <div class="admin-list-container" id="adminChatsList">
+            <div class="empty-state">Loading global conversation stream...</div>
+          </div>
+        </div>
+
+        <!-- Tab 2: Users & Roles Manager -->
+        <div id="adminUsersTabContent" class="admin-tab-content" style="display:none;">
+          <div class="admin-toolbar" style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap;">
+            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+              <button type="button" class="hud-btn primary compact-btn" id="adminToggleCreateUserBtn">
+                <span>➕ ADD USER</span>
+              </button>
+              <button type="button" class="hud-btn secondary compact-btn" id="adminTogglePromoteBtn">
+                <span>🛡️ QUICK PROMOTE</span>
+              </button>
+            </div>
+            <button type="button" class="hud-btn secondary compact-btn" id="adminRefreshUsersBtn">REFRESH USERS</button>
+          </div>
+
+          <!-- Add User Form Panel -->
+          <div id="adminCreateUserContainer" class="admin-create-user-panel" style="display:none;">
+            <div style="font-size:12px; font-weight:700; color:var(--cyan-neon); margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
+              <span>➕ CREATE NEW USER ACCOUNT</span>
+              <button type="button" id="adminCloseCreateUserBtn" style="background:none; border:none; color:#888; font-size:18px; cursor:pointer; line-height:1;">&times;</button>
+            </div>
+            <form id="adminCreateUserForm">
+              <div class="admin-create-user-grid">
+                <div>
+                  <label style="font-size:10px; color:#aaa; display:block; margin-bottom:3px; font-weight:600;">FULL NAME *</label>
+                  <input type="text" id="adminNewUserName" class="hud-input compact" placeholder="e.g. Rahul Kumar" required>
+                </div>
+                <div>
+                  <label style="font-size:10px; color:#aaa; display:block; margin-bottom:3px; font-weight:600;">EMAIL ADDRESS *</label>
+                  <input type="email" id="adminNewUserEmail" class="hud-input compact" placeholder="e.g. rahul@example.com" required>
+                </div>
+                <div>
+                  <label style="font-size:10px; color:#aaa; display:block; margin-bottom:3px; font-weight:600;">PASSWORD *</label>
+                  <input type="password" id="adminNewUserPassword" class="hud-input compact" placeholder="Min 4 characters" minlength="4" required>
+                </div>
+                <div>
+                  <label style="font-size:10px; color:#aaa; display:block; margin-bottom:3px; font-weight:600;">ACCOUNT ROLE</label>
+                  <select id="adminNewUserRole" class="hud-select compact">
+                    <option value="user">USER (Standard Account)</option>
+                    <option value="admin">ADMIN 🛡️ (Overseer Console)</option>
+                  </select>
+                </div>
+                <div>
+                  <label style="font-size:10px; color:#aaa; display:block; margin-bottom:3px; font-weight:600;">CITY / VILLAGE</label>
+                  <input type="text" id="adminNewUserCity" class="hud-input compact" placeholder="e.g. Patna" value="Patna">
+                </div>
+                <div>
+                  <label style="font-size:10px; color:#aaa; display:block; margin-bottom:3px; font-weight:600;">LANGUAGE MODE</label>
+                  <select id="adminNewUserLang" class="hud-select compact">
+                    <option value="hi">हिन्दी (Hindi / Default)</option>
+                    <option value="en">English</option>
+                  </select>
+                </div>
+              </div>
+              <div id="adminCreateUserMsg" class="gemini-test-status" style="display:none; margin-top:8px; font-size:11px;"></div>
+              <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:10px;">
+                <button type="button" class="hud-btn secondary compact-btn" id="adminCancelCreateUserBtn">CANCEL</button>
+                <button type="submit" class="hud-btn primary compact-btn" id="adminSubmitCreateUserBtn">
+                  <span>CONFIRM &amp; CREATE USER</span>
+                </button>
+              </div>
+            </form>
+          </div>
+
+          <!-- Quick Promote by Email Form Panel -->
+          <div id="adminQuickPromoteContainer" style="display:none; margin-top:10px; margin-bottom:10px; background:rgba(14,22,34,0.7); border:1px solid rgba(255,170,0,0.3); border-radius:8px; padding:10px;">
+            <div style="font-size:11px; font-weight:600; color:#ffaa00; margin-bottom:6px;">🛡️ QUICK PROMOTE USER TO OVERSEER (ADMIN)</div>
+            <form id="adminQuickPromoteForm" class="admin-quick-promote-bar" style="display:flex; gap:8px;">
+              <input 
+                type="email" 
+                id="adminQuickPromoteEmail" 
+                class="hud-input compact" 
+                placeholder="Enter user email to make Admin (e.g. user@gmail.com)..." 
+                required
+                style="flex:1;"
+              >
+              <button type="submit" class="hud-btn primary compact-btn" id="adminQuickPromoteBtn">
+                <span>MAKE ADMIN 🛡️</span>
+              </button>
+            </form>
+            <div id="adminQuickPromoteMsg" class="gemini-test-status" style="display:none; margin-top:6px; font-size:11px;"></div>
+          </div>
+
+          <div class="admin-list-container" id="adminUsersList">
+            <div class="empty-state">Loading registered accounts...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="js/audioEffects.js"></script>
+  <script src="js/visualizer.js"></script>
+  <script src="js/voice.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

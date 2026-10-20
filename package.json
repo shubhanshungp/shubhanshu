@@ -1,0 +1,32 @@
+{
+  "name": "arya-ai-assistant",
+  "version": "1.0.0",
+  "description": "ARYA. AI Voice & Chat Interactive Interface built with Node.js, Express, MongoDB, and Web Speech API",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "keywords": [
+    "arya",
+    "ai",
+    "voice-assistant",
+    "hud",
+    "express",
+    "mongodb"
+  ],
+  "author": "Shubhanshu Kumar Srivastav",
+  "license": "MIT",
+  "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "mongodb": "^7.7.0",
+    "mongoose": "^8.9.5",
+    "selfsigned": "^5.5.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
