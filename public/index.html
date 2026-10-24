@@ -152,11 +152,15 @@
         </div>
 
         <div class="vitals-group">
-          <!-- CPU Cores -->
+          <!-- CPU Architecture & Hardware -->
           <div class="vital-card">
             <div class="vital-meta">
               <span class="vital-label">CPU ARCHITECTURE</span>
-              <span class="vital-value" id="cpuModel">LOADING...</span>
+              <span class="vital-value" id="cpuArch" style="color: var(--cyan-neon); font-weight: 700; letter-spacing: 0.5px;">LOADING...</span>
+            </div>
+            <div class="metric-row">
+              <span>PROCESSOR:</span>
+              <strong id="cpuModel" class="processor-text" title="CPU Processor Model">--</strong>
             </div>
             <div class="metric-row">
               <span>ACTIVE CORES:</span>
@@ -193,62 +197,61 @@
         </div>
 
         <!-- QUICK PROTOCOLS -->
-        <!-- QUICK PROTOCOLS -->
         <div class="panel-section-title">SYSTEM & QUICK COMMANDS</div>
         <div class="protocol-grid">
-          <button class="protocol-btn" data-cmd="take a screenshot">
+          <button type="button" class="protocol-btn" data-cmd="take a screenshot">
             <span class="cmd-icon">📸</span>
             <span>SCREENSHOT</span>
           </button>
-          <button class="protocol-btn" data-cmd="open notepad">
+          <button type="button" class="protocol-btn" data-cmd="open notepad">
             <span class="cmd-icon">📝</span>
             <span>NOTEPAD</span>
           </button>
-          <button class="protocol-btn" data-cmd="check disk space">
+          <button type="button" class="protocol-btn" data-cmd="check disk space">
             <span class="cmd-icon">💾</span>
             <span>DISK SPACE</span>
           </button>
-          <button class="protocol-btn" data-cmd="battery status">
+          <button type="button" class="protocol-btn" data-cmd="battery status">
             <span class="cmd-icon">🔋</span>
             <span>BATTERY</span>
           </button>
-          <button class="protocol-btn" data-cmd="show files on desktop">
+          <button type="button" class="protocol-btn" data-cmd="show files on desktop">
             <span class="cmd-icon">📁</span>
             <span>DESKTOP FILES</span>
           </button>
-          <button class="protocol-btn" data-cmd="lock pc">
+          <button type="button" class="protocol-btn" data-cmd="lock pc">
             <span class="cmd-icon">🔒</span>
             <span>LOCK PC</span>
           </button>
-          <button class="protocol-btn" data-cmd="system diagnostics">
+          <button type="button" class="protocol-btn" data-cmd="system diagnostics">
             <span class="cmd-icon">📊</span>
             <span>DIAGNOSTICS</span>
           </button>
-          <button class="protocol-btn" data-cmd="नमस्ते आर्या">
+          <button type="button" class="protocol-btn" data-cmd="नमस्ते आर्या">
             <span class="cmd-icon">🇮🇳</span>
             <span>नमस्ते (HINDI)</span>
           </button>
-          <button class="protocol-btn" data-cmd="समय क्या हुआ है">
+          <button type="button" class="protocol-btn" data-cmd="समय क्या हुआ है">
             <span class="cmd-icon">🕒</span>
             <span>समय (TIME)</span>
           </button>
-          <button class="protocol-btn" data-cmd="पिछला चैट पढ़ो">
+          <button type="button" class="protocol-btn" data-cmd="पिछला चैट पढ़ो">
             <span class="cmd-icon">📜</span>
             <span>LAST CHAT (DB)</span>
           </button>
-          <button class="protocol-btn" data-cmd="read previous chat from database">
+          <button type="button" class="protocol-btn" data-cmd="read previous chat from database">
             <span class="cmd-icon">💾</span>
             <span>RECALL CHATS</span>
           </button>
-          <button class="protocol-btn" data-cmd="open youtube">
+          <button type="button" class="protocol-btn" data-cmd="open youtube">
             <span class="cmd-icon">▶️</span>
             <span>YOUTUBE</span>
           </button>
-          <button class="protocol-btn" data-cmd="whatsapp open">
+          <button type="button" class="protocol-btn" data-cmd="whatsapp open">
             <span class="cmd-icon">📲</span>
             <span>WHATSAPP</span>
           </button>
-          <button class="protocol-btn" data-cmd="what is the weather today">
+          <button type="button" class="protocol-btn" data-cmd="what is the weather today">
             <span class="cmd-icon">🌤️</span>
             <span>WEATHER</span>
           </button>

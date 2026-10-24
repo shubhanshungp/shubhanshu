@@ -599,8 +599,8 @@ class AryaAIService {
   /**
    * Main entry to process user prompt and generate ARYA. response
    */
-  async processQuery(userInput, customApiKey = null, preferredLang = 'en', deviceId = 'default_device', deviceName = 'Primary Device', targetCity = 'Patna', fileAttachment = null, userId = null, devicePlatform = 'windows', deviceType = 'desktop', isLocalHost = true) {
-    const res = await this._processQueryInternal(userInput, customApiKey, preferredLang, deviceId, deviceName, targetCity, fileAttachment, userId, devicePlatform, deviceType, isLocalHost);
+  async processQuery(userInput, customApiKey = null, preferredLang = 'en', deviceId = 'default_device', deviceName = 'Primary Device', targetCity = 'Patna', fileAttachment = null, userId = null, devicePlatform = 'windows', deviceType = 'desktop', isLocalHost = true, clientBattery = null, clientStorage = null) {
+    const res = await this._processQueryInternal(userInput, customApiKey, preferredLang, deviceId, deviceName, targetCity, fileAttachment, userId, devicePlatform, deviceType, isLocalHost, clientBattery, clientStorage);
     if (res && res.speech) {
       const isHindi = res.language === 'hi' || this.detectHindi(userInput || '', preferredLang);
       res.speech = this.cleanVoiceSpeech(res.speech, isHindi);
@@ -611,7 +611,7 @@ class AryaAIService {
   /**
    * Internal routing matrix for queries
    */
-  async _processQueryInternal(userInput, customApiKey = null, preferredLang = 'en', deviceId = 'default_device', deviceName = 'Primary Device', targetCity = 'Patna', fileAttachment = null, userId = null, devicePlatform = 'windows', deviceType = 'desktop', isLocalHost = true) {
+  async _processQueryInternal(userInput, customApiKey = null, preferredLang = 'en', deviceId = 'default_device', deviceName = 'Primary Device', targetCity = 'Patna', fileAttachment = null, userId = null, devicePlatform = 'windows', deviceType = 'desktop', isLocalHost = true, clientBattery = null, clientStorage = null) {
     let text = (userInput || '').trim();
     if (!text && fileAttachment) {
       text = fileAttachment.type && fileAttachment.type.startsWith('image/')
@@ -668,7 +668,7 @@ class AryaAIService {
     }
 
     // 0.3 SYSTEM COMMANDS & DEEP OS ACCESS (Apps, Folders, Files, Hardware, Terminal, Process Management)
-    const systemResult = await this.handleSystemCommands(lower, text, isHindi, deviceId, deviceName, devicePlatform, deviceType, isLocalHost);
+    const systemResult = await this.handleSystemCommands(lower, text, isHindi, deviceId, deviceName, devicePlatform, deviceType, isLocalHost, clientBattery, clientStorage);
     if (systemResult) {
       systemResult.language = lang;
       systemResult.deviceId = deviceId;
@@ -868,7 +868,7 @@ class AryaAIService {
    * - File system operations (listing, reading, creating, deleting files and folders)
    * - Direct terminal / PowerShell command execution
    */
-  async handleSystemCommands(lower, originalText, isHindi, deviceId = 'default_device', deviceName = 'Primary Device', devicePlatform = 'windows', deviceType = 'desktop', isLocalHost = true) {
+  async handleSystemCommands(lower, originalText, isHindi, deviceId = 'default_device', deviceName = 'Primary Device', devicePlatform = 'windows', deviceType = 'desktop', isLocalHost = true, clientBattery = null, clientStorage = null) {
     const isMobileClient = devicePlatform === 'ios' || devicePlatform === 'android' || deviceType === 'mobile' || deviceType === 'tablet' || deviceId?.startsWith('mob_') || deviceId?.startsWith('tab_');
     const isDesktopWorkstation = !isMobileClient && (isLocalHost || devicePlatform === 'windows' || devicePlatform === 'mac' || devicePlatform === 'linux' || deviceType === 'desktop');
 
@@ -895,16 +895,11 @@ class AryaAIService {
     }
 
     // 2. LOCK COMPUTER / WORKSTATION / MOBILE DEVICE
-    if (lower.includes('lock pc') || lower.includes('lock screen') || lower.includes('lock computer') || lower.includes('lock workstation') || lower.includes('lock device') || lower.includes('स्क्रीन लॉक') || lower.includes('कंप्यूटर लॉक') || lower.includes('पीसी लॉक')) {
-      if (isDesktopWorkstation) {
-        await systemService.lockSystem();
-        return {
-          speech: isHindi ? `सर, कंप्यूटर वर्कस्टेशन को तुरंत लॉक कर दिया गया है।` : `Workstation locked immediately, ${this.userName}.`,
-          display: `🔒 **SYSTEM WORKSTATION LOCKED**\nSecurity protocol engaged. System access locked on screen.`,
-          action: 'system_locked',
-          data: { isDesktopWorkstation: true }
-        };
-      } else {
+    const isLockPCCommand = lower.includes('lock pc') || lower.includes('lock computer') || lower.includes('lock workstation') || lower.includes('lock laptop') || lower.includes('lock screen') || lower.includes('कंप्यूटर लॉक') || lower.includes('पीसी लॉक') || lower.includes('स्क्रीन लॉक') || lower.includes('लैपटॉप लॉक');
+    const isLockMobileCommand = lower.includes('lock mobile') || lower.includes('lock phone') || lower.includes('lock device') || lower.includes('फोन लॉक') || lower.includes('मोबाइल लॉक');
+
+    if (isLockPCCommand || isLockMobileCommand) {
+      if (isLockMobileCommand && !isLockPCCommand) {
         return {
           speech: isHindi ? `सर, आपके मोबाइल डिवाइस पर आर्या स्क्रीन लॉक कर दी गई है।` : `Security protocol engaged. ARYA screen locked on your device, ${this.userName}.`,
           display: `🔒 **DEVICE SECURITY LOCK [${deviceName}]:**\n• **Active System:** ${deviceName} (${devicePlatform.toUpperCase()})\n• **Status:** ARYA secure session locked.\n• To resume interaction, tap the screen or sign in.`,
@@ -912,6 +907,22 @@ class AryaAIService {
           data: { isDesktopWorkstation: false }
         };
       }
+
+      // "lock pc", "lock computer", "lock screen" -> ALWAYS LOCK THE PC WORKSTATION!
+      try {
+        await systemService.lockSystem();
+      } catch (err) {
+        console.warn('System lock notice:', err.message);
+      }
+      const scopeLabel = isDesktopWorkstation ? 'Workstation [Local PC]' : `Workstation [Remote Command from ${deviceName}]`;
+      return {
+        speech: isHindi 
+          ? (isDesktopWorkstation ? `सर, कंप्यूटर वर्कस्टेशन को तुरंत लॉक कर दिया गया है।` : `सर, आपके मोबाइल से पीसी वर्कस्टेशन (PC) को तुरंत लॉक कर दिया गया है।`)
+          : (isDesktopWorkstation ? `Workstation locked immediately, ${this.userName}.` : `Host workstation locked remotely from ${deviceName}, ${this.userName}.`),
+        display: `🔒 **PC WORKSTATION LOCKED [${scopeLabel}]:**\n• **Target:** Host Workstation PC\n• **Status:** System access locked on screen\n• **Command Origin:** **${deviceName}** (${devicePlatform.toUpperCase()})\n*(Security protocol engaged successfully)*`,
+        action: 'system_locked',
+        data: { isDesktopWorkstation, target: 'workstation' }
+      };
     }
 
     // 3. VOLUME CONTROLS
@@ -941,7 +952,8 @@ class AryaAIService {
     }
 
     // 4. BATTERY STATUS
-    if (lower === 'battery' || lower.includes('battery status') || lower.includes('battery percentage') || lower.includes('how much battery') || lower.includes('battery level') || lower.includes('बैटरी')) {
+    const isBatteryQuery = lower === 'battery' || lower.includes('battery') || lower.includes('बैटरी') || lower.includes('power level') || lower.includes('चार्जिंग');
+    if (isBatteryQuery) {
       const bat = await systemService.getBatteryStatus();
       if (isDesktopWorkstation) {
         return {
@@ -953,19 +965,73 @@ class AryaAIService {
           data: { ...bat, isDesktopWorkstation: true }
         };
       } else {
-        return {
-          speech: isHindi 
-            ? `सर, आपके मोबाइल डिवाइस का बैटरी स्तर स्क्रीन पर सिंक कर दिया गया है।`
-            : `Mobile device battery sensor synced to your HUD, ${this.userName}.`,
-          display: `🔋 **MOBILE BATTERY TELEMETRY [${deviceName}]:**\n• **Active System:** **${deviceName}** (${devicePlatform.toUpperCase()})\n• **Workstation Host:** ${bat.percent}% (${bat.status})\n*(Hardware battery telemetry active in top bar)*`,
-          action: 'battery_status',
-          data: { ...bat, isDesktopWorkstation: false }
-        };
+        // Mobile device
+        if (clientBattery && typeof clientBattery.percent === 'number') {
+          const chargingTextHi = clientBattery.isCharging ? 'और चार्ज हो रहा है ⚡' : 'और बैटरी पर चल रहा है';
+          const chargingTextEn = clientBattery.isCharging ? '(Charging ⚡)' : '(On Battery)';
+          return {
+            speech: isHindi 
+              ? `सर, आपके मोबाइल (${deviceName}) की बैटरी अभी ${clientBattery.percent}% है ${chargingTextHi}।`
+              : `Mobile device (${deviceName}) battery is currently at ${clientBattery.percent}% ${chargingTextEn}, ${this.userName}.`,
+            display: `🔋 **MOBILE BATTERY TELEMETRY [${deviceName}]:**\n• **📱 Mobile Battery:** **${clientBattery.percent}%** (${clientBattery.isCharging ? '⚡ Charging' : 'Discharging'})\n• **Active System:** **${deviceName}** (${devicePlatform.toUpperCase()})\n• **💻 Host Workstation:** ${bat.percent}% (${bat.status})\n*(Hardware sensor synchronized with HUD)*`,
+            action: 'battery_status',
+            data: { ...clientBattery, hostBattery: bat, isDesktopWorkstation: false }
+          };
+        } else {
+          return {
+            speech: isHindi 
+              ? `सर, आपके मोबाइल स्क्रीन के ऊपर स्टेटस बार में बैटरी उपलब्ध है। वर्कस्टेशन बैटरी ${bat.percent}% है।`
+              : `Mobile device battery is active in your device's top status bar. Host workstation is at ${bat.percent}%, ${this.userName}.`,
+            display: `🔋 **BATTERY TELEMETRY [${deviceName}]:**\n• **📱 Active Device:** **${deviceName}** (${devicePlatform.toUpperCase()})\n• **Device Battery:** Active in system top bar\n• **💻 Host Workstation:** **${bat.percent}%** (${bat.status})\n*(Real-time telemetry synchronized)*`,
+            action: 'battery_status',
+            data: { hostBattery: bat, isDesktopWorkstation: false }
+          };
+        }
       }
     }
 
+    // 4.1 CPU ARCHITECTURE & PROCESSOR TELEMETRY
+    const isCpuQuery = lower.includes('cpu architecture') ||
+      lower.includes('cpu arch') ||
+      lower.includes('processor architecture') ||
+      lower.includes('cpu info') ||
+      lower.includes('cpu details') ||
+      lower.includes('processor info') ||
+      lower.includes('processor details') ||
+      lower.includes('cpu model') ||
+      lower.includes('processor model') ||
+      lower.includes('processor name') ||
+      lower.includes('about cpu') ||
+      lower === 'cpu' ||
+      lower === 'processor' ||
+      lower.includes('सीपीयू') ||
+      lower.includes('प्रोसेसर') ||
+      lower.includes('आर्किटेक्चर') ||
+      lower.includes('cpu kya hai') ||
+      lower.includes('processor kya hai') ||
+      lower.includes('architecture kya hai') ||
+      lower.includes('cpu architecture kya hai');
+
+    if (isCpuQuery) {
+      const cpuInfo = await systemService.getCpuInfo();
+      const scopeLabel = isDesktopWorkstation ? 'Workstation Hardware' : `Host Workstation Hardware (${deviceName} Remote Access)`;
+      return {
+        speech: isHindi
+          ? `सर, आपके सिस्टम का सीपीयू आर्किटेक्चर ${cpuInfo.archFormatted} है। प्रोसेसर ${cpuInfo.model} है, जिसमें ${cpuInfo.cores} कोर या थ्रेड्स ${cpuInfo.speedGHz} GHz गति पर काम कर रहे हैं।`
+          : `Workstation CPU Architecture is ${cpuInfo.archFormatted}, ${this.userName}. Running on ${cpuInfo.model} with ${cpuInfo.cores} processing threads at ${cpuInfo.speedGHz} GHz.`,
+        display: `⚡ **CPU ARCHITECTURE & HARDWARE TELEMETRY [${scopeLabel}]:**\n• **CPU Architecture:** **${cpuInfo.archFormatted}**\n• **Processor Model:** **${cpuInfo.model}**\n• **Active Cores / Threads:** **${cpuInfo.cores} Threads**\n• **Clock Speed:** **${cpuInfo.speedGHz} GHz** (${cpuInfo.speedMHz} MHz)\n• **Host OS Platform:** ${cpuInfo.osPlatform}\n*(Synchronized with ARYA Hardware HUD)*`,
+        action: 'cpu_info',
+        data: cpuInfo
+      };
+    }
+
     // 5. DISK SPACE / STORAGE STATUS
-    if (lower.includes('disk space') || lower.includes('storage status') || lower.includes('hard disk') || lower.includes('drive space') || lower.includes('free space') || lower.includes('स्टोरेज') || lower.includes('हार्ड डिस्क') || lower.includes('ड्राइव स्पेस')) {
+    const isDiskQuery = lower.includes('disk space') || lower.includes('storage') || lower.includes('drive space') || 
+      lower.includes('hard disk') || lower.includes('free space') || lower.includes('disk') || 
+      lower.includes('स्टोरेज') || lower.includes('हार्ड डिस्क') || lower.includes('ड्राइव स्पेस') || 
+      lower.includes('space kitna') || lower.includes('kitna space') || lower.includes('storage kitna');
+
+    if (isDiskQuery) {
       const disk = await systemService.getDiskSpace();
       if (disk.success && disk.drives && disk.drives.length > 0) {
         const driveRows = disk.drives.map(d => `• **Drive ${d.Name}:** ${d.FreeGB} GB Free / ${d.TotalGB} GB Total (${d.PercentFree}% free)`).join('\n');
@@ -980,13 +1046,14 @@ class AryaAIService {
             data: { drives: disk.drives, isDesktopWorkstation: true }
           };
         } else {
+          const quotaStr = clientStorage && clientStorage.quotaGB ? `${clientStorage.quotaGB} GB available (${clientStorage.usageMB || 0} MB cached)` : 'Local HTML5 Storage Quota Active';
           return {
             speech: isHindi
-              ? `सर, मोबाइल लोकल कैशे एवं वर्कस्टेशन ड्राइव ${primary.Name} में ${primary.FreeGB} जीबी खाली है।`
-              : `Workstation storage has ${primary.FreeGB} gigabytes free out of ${primary.TotalGB} GB, ${this.userName}.`,
-            display: `💾 **STORAGE TELEMETRY [${deviceName} & Workstation]:**\n• **Active Device:** **${deviceName}** (${devicePlatform.toUpperCase()})\n• **MongoDB Cloud Vault:** Operational & Synced\n• **Host Workstation Drives:**\n${driveRows}`,
+              ? `सर, मोबाइल लोकल स्टोरेज सक्रिय है, और वर्कस्टेशन ड्राइव ${primary.Name} में ${primary.FreeGB} जीबी खाली है।`
+              : `Mobile storage active. Workstation drive ${primary.Name} has ${primary.FreeGB} gigabytes free out of ${primary.TotalGB} GB, ${this.userName}.`,
+            display: `💾 **STORAGE TELEMETRY [${deviceName} & Workstation]:**\n• **📱 Mobile Device Quota:** ${quotaStr}\n• **☁️ MongoDB Cloud Vault:** Active & Synchronized\n• **💻 Host Workstation Drives:**\n${driveRows}`,
             action: 'disk_space',
-            data: { drives: disk.drives, isDesktopWorkstation: false }
+            data: { drives: disk.drives, clientStorage, isDesktopWorkstation: false }
           };
         }
       }
@@ -1777,26 +1844,31 @@ class AryaAIService {
       const totalMem = (os.totalmem() / (1024 * 1024 * 1024)).toFixed(1);
       const freeMem = (os.freemem() / (1024 * 1024 * 1024)).toFixed(1);
       const usedMem = (totalMem - freeMem).toFixed(1);
-      const cpuCount = os.cpus().length;
+      const cpus = os.cpus() || [];
+      const cpuCount = cpus.length;
+      const rawCpu = cpuCount > 0 ? cpus[0].model : 'Unknown Processor';
+      const cleanCpu = rawCpu.replace(/\(R\)|\(TM\)/gi, '').replace(/\s+/g, ' ').split('@')[0].trim();
+      const cpuArch = os.arch() === 'x64' ? 'x86_64 / x64 (64-Bit)' : (os.arch() === 'arm64' ? 'ARM64 (64-Bit)' : `${os.arch().toUpperCase()} (32-Bit)`);
+      const speedGHz = cpuCount > 0 && cpus[0].speed ? `${(cpus[0].speed / 1000).toFixed(2)} GHz` : '2.50 GHz';
       const uptimeHours = (os.uptime() / 3600).toFixed(1);
 
       if (isHindi) {
-        const speech = `सर, सभी प्रणालियां सामान्य हैं। रैम उपयोग ${usedMem} में से ${totalMem} जीबी है। सिस्टम ${cpuCount} कोर पर चल रहा है और अपटाइम ${uptimeHours} घंटे है।`;
-        const display = `**सिस्टम स्थिति रिपोर्ट (SYSTEM DIAGNOSTICS)**\n• ऑपरेटिंग सिस्टम: ${os.type()} (${os.arch()})\n• सीपीयू कोर: ${cpuCount}\n• रैम मेमोरी: ${usedMem} GB उपयोग / ${totalMem} GB कुल (${freeMem} GB खाली)\n• सिस्टम अपटाइम: ${uptimeHours} घंटे\n• डेटाबेस: MongoDB कनेक्टेड एवं सक्रिय।`;
+        const speech = `सर, सभी प्रणालियां सामान्य हैं। सीपीयू आर्किटेक्चर ${cpuArch} है, और प्रोसेसर ${cleanCpu} ${cpuCount} कोर पर सक्रिय है। रैम उपयोग ${usedMem} में से ${totalMem} जीबी है और अपटाइम ${uptimeHours} घंटे है।`;
+        const display = `**सिस्टम स्थिति रिपोर्ट (SYSTEM DIAGNOSTICS)**\n• ऑपरेटिंग सिस्टम: ${os.type()} (${os.arch()})\n• सीपीयू आर्किटेक्चर: **${cpuArch}**\n• प्रोसेसर: **${cleanCpu}** (${cpuCount} Cores @ ${speedGHz})\n• रैम मेमोरी: ${usedMem} GB उपयोग / ${totalMem} GB कुल (${freeMem} GB खाली)\n• सिस्टम अपटाइम: ${uptimeHours} घंटे\n• डेटाबेस: MongoDB कनेक्टेड एवं सक्रिय।`;
         return {
           speech,
           display,
           action: 'system_diagnostics',
-          data: { totalMem, freeMem, usedMem, cpuCount, uptimeHours }
+          data: { totalMem, freeMem, usedMem, cpuCount, uptimeHours, cpuArch, cleanCpu }
         };
       } else {
-        const speech = `All primary systems operational, ${this.userName}. Memory usage is at ${usedMem} of ${totalMem} gigabytes. Running across ${cpuCount} processing cores with ${uptimeHours} hours of uptime.`;
-        const display = `**SYSTEM DIAGNOSTICS COMPLETE**\n• Host OS: ${os.type()} (${os.arch()})\n• CPU Cores: ${cpuCount}\n• RAM: ${usedMem} GB used / ${totalMem} GB total (${freeMem} GB free)\n• System Uptime: ${uptimeHours} hours\n• Status: All neural subroutines operational at 100% capacity.`;
+        const speech = `All primary systems operational, ${this.userName}. CPU Architecture is ${cpuArch} running ${cleanCpu} across ${cpuCount} processing cores. Memory usage is at ${usedMem} of ${totalMem} gigabytes with ${uptimeHours} hours of uptime.`;
+        const display = `**SYSTEM DIAGNOSTICS COMPLETE**\n• Host OS: ${os.type()} (${os.arch()})\n• CPU Architecture: **${cpuArch}**\n• Processor: **${cleanCpu}** (${cpuCount} Cores @ ${speedGHz})\n• RAM: ${usedMem} GB used / ${totalMem} GB total (${freeMem} GB free)\n• System Uptime: ${uptimeHours} hours\n• Status: All neural subroutines operational at 100% capacity.`;
         return {
           speech,
           display,
           action: 'system_diagnostics',
-          data: { totalMem, freeMem, usedMem, cpuCount, uptimeHours }
+          data: { totalMem, freeMem, usedMem, cpuCount, uptimeHours, cpuArch, cleanCpu }
         };
       }
     }

@@ -527,6 +527,16 @@ body {
   font-family: var(--font-mono);
 }
 
+.metric-row .processor-text {
+  max-width: 150px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: right;
+  font-size: 11px;
+  color: #e2e8f0;
+}
+
 .status-glow-green {
   color: var(--green-active);
   font-family: var(--font-mono);
@@ -557,12 +567,19 @@ body {
   align-items: center;
   gap: 4px;
   transition: all 0.2s ease;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
 }
 .protocol-btn:hover {
   background: rgba(0, 240, 255, 0.15);
   border-color: var(--cyan-neon);
   box-shadow: 0 0 12px var(--cyan-glow);
   transform: translateY(-2px);
+}
+.protocol-btn:active {
+  transform: scale(0.96);
+  background: rgba(0, 240, 255, 0.25);
 }
 .protocol-btn .cmd-icon {
   font-size: 16px;

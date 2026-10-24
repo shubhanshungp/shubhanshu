@@ -626,6 +626,16 @@ router.post('/chat', async (req, res) => {
 
     const effectiveApiKey = (apiKey && apiKey.trim()) || (req.user && req.user.geminiApiKey) || null;
 
+    const clientBattery = req.body.clientBattery || (req.headers['x-client-battery-percent'] ? {
+      percent: parseInt(req.headers['x-client-battery-percent'], 10),
+      isCharging: req.headers['x-client-battery-charging'] === 'true'
+    } : null);
+
+    const clientStorage = req.body.clientStorage || (req.headers['x-client-storage-quota'] ? {
+      quotaGB: req.headers['x-client-storage-quota'],
+      usageMB: req.headers['x-client-storage-usage'] || '0'
+    } : null);
+
     const userId = req.user ? req.user._id : null;
     const promptText = (message && message.trim()) || (fileAttachment ? (fileAttachment.type && fileAttachment.type.startsWith('image/') ? 'Please inspect and analyze this image.' : 'Please analyze this uploaded document.') : '');
     const aiResult = await aiService.processQuery(
@@ -639,7 +649,9 @@ router.post('/chat', async (req, res) => {
       userId,
       devicePlatform,
       deviceType,
-      isLocalHost
+      isLocalHost,
+      clientBattery,
+      clientStorage
     );
 
     // Save automatically to MongoDB partitioned by user (if logged in) or deviceId (if guest)
@@ -1136,14 +1148,21 @@ router.get('/system', (req, res) => {
   const usedMemGB = (usedMemBytes / (1024 ** 3)).toFixed(2);
   const memUsagePercent = Math.round((usedMemBytes / totalMemBytes) * 100);
 
-  const cpus = os.cpus();
-  const cpuModel = cpus.length > 0 ? cpus[0].model : 'Unknown Processor';
+  const cpus = os.cpus() || [];
+  const rawModel = cpus.length > 0 ? cpus[0].model : 'Unknown Processor';
+  const cleanModel = rawModel.replace(/\(R\)|\(TM\)/gi, '').replace(/\s+/g, ' ').split('@')[0].trim();
+  const archFormatted = os.arch() === 'x64' 
+    ? 'x64 (64-Bit)' 
+    : (os.arch() === 'arm64' ? 'ARM64 (64-Bit)' : (os.arch() === 'ia32' ? 'x86 (32-Bit)' : `${os.arch().toUpperCase()} (${process.arch})`));
 
   res.json({
     platform: `${os.type()} ${os.arch()} (${os.release()})`,
     hostname: os.hostname(),
     cpu: {
-      model: cpuModel,
+      model: cleanModel,
+      rawModel: rawModel,
+      arch: os.arch(),
+      archFormatted: archFormatted,
       cores: cpus.length,
       speedMHz: cpus.length > 0 ? cpus[0].speed : 0
     },

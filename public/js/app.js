@@ -27,6 +27,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const hudBattery = document.getElementById('hudBattery');
 
   // DOM Elements - Left Panel Telemetry
+  const cpuArch = document.getElementById('cpuArch');
   const cpuModel = document.getElementById('cpuModel');
   const cpuCores = document.getElementById('cpuCores');
   const ramRatio = document.getElementById('ramRatio');
@@ -240,6 +241,21 @@ document.addEventListener('DOMContentLoaded', () => {
     return localStorage.getItem('arya_auth_token') || '';
   }
 
+  // Live Client Telemetry (Battery & Storage for mobile, tablet, and desktop)
+  let clientBatteryData = null;
+  let clientStorageData = null;
+
+  async function updateClientStorageTelemetry() {
+    try {
+      if (navigator.storage && navigator.storage.estimate) {
+        const est = await navigator.storage.estimate();
+        const quotaGB = (est.quota / (1024 * 1024 * 1024)).toFixed(1);
+        const usageMB = (est.usage / (1024 * 1024)).toFixed(1);
+        clientStorageData = { quotaGB, usageMB };
+      }
+    } catch (e) {}
+  }
+
   // ==========================================================================
   // AUTO-POPUP FOR LOGIN AFTER 10 SECONDS (FOR GUEST USERS)
   // ==========================================================================
@@ -434,6 +450,14 @@ document.addEventListener('DOMContentLoaded', () => {
       'X-Device-Type': deviceType,
       'X-Is-Local-Host': isLocalHost ? 'true' : 'false'
     };
+    if (clientBatteryData && typeof clientBatteryData.percent === 'number') {
+      headers['X-Client-Battery-Percent'] = String(clientBatteryData.percent);
+      headers['X-Client-Battery-Charging'] = clientBatteryData.isCharging ? 'true' : 'false';
+    }
+    if (clientStorageData && clientStorageData.quotaGB) {
+      headers['X-Client-Storage-Quota'] = String(clientStorageData.quotaGB);
+      headers['X-Client-Storage-Usage'] = String(clientStorageData.usageMB || '0');
+    }
     const token = getAuthToken();
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
@@ -671,13 +695,15 @@ document.addEventListener('DOMContentLoaded', () => {
     navigator.getBattery().then(bat => {
       const updateBat = () => {
         const pct = Math.round(bat.level * 100);
-        hudBattery.textContent = `${pct}% ${bat.charging ? '⚡' : ''}`;
+        clientBatteryData = { percent: pct, isCharging: Boolean(bat.charging) };
+        if (hudBattery) hudBattery.textContent = `${pct}% ${bat.charging ? '⚡' : ''}`;
       };
       updateBat();
       bat.addEventListener('levelchange', updateBat);
       bat.addEventListener('chargingchange', updateBat);
-    });
+    }).catch(() => {});
   }
+  updateClientStorageTelemetry();
 
   // ==========================================================================
   // HARDWARE TELEMETRY POLLING (/api/system)
@@ -688,10 +714,20 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!res.ok) return;
       const data = await res.json();
 
-      // CPU
+      // CPU & Architecture Telemetry
       if (data.cpu) {
-        cpuModel.textContent = data.cpu.model.split('@')[0].trim();
-        cpuCores.textContent = `${data.cpu.cores} THREADS`;
+        if (cpuArch) {
+          cpuArch.textContent = (data.cpu.archFormatted || (data.cpu.arch ? `${data.cpu.arch.toUpperCase()} (64-BIT)` : 'x64 (64-BIT)')).toUpperCase();
+        }
+        if (cpuModel) {
+          const cleanName = (data.cpu.model || '').replace(/\(R\)|\(TM\)/gi, '').replace(/\s+/g, ' ').split('@')[0].trim();
+          cpuModel.textContent = cleanName || 'Intel / AMD Processor';
+          cpuModel.title = data.cpu.rawModel || cleanName;
+        }
+        if (cpuCores) {
+          const speedStr = data.cpu.speedMHz ? ` (${(data.cpu.speedMHz / 1000).toFixed(2)} GHz)` : '';
+          cpuCores.textContent = `${data.cpu.cores} THREADS${speedStr}`;
+        }
       }
 
       // Memory
@@ -767,9 +803,16 @@ document.addEventListener('DOMContentLoaded', () => {
       const ua = navigator.userAgent || '';
       const isIOS = /iPhone|iPad|iPod/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
       const isAndroid = /Android/i.test(ua);
+      const isMobile = isIOS || isAndroid || /Mobile/i.test(ua);
+      const isTablet = /iPad|Tablet/i.test(ua) || (navigator.maxTouchPoints > 2 && window.innerWidth >= 600 && window.innerWidth <= 1024);
       const isLocalHost = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
-      const platform = isIOS ? 'ios' : (isAndroid ? 'android' : (navigator.platform?.includes('Mac') ? 'mac' : 'windows'));
-      const deviceType = (isIOS || isAndroid) ? 'mobile' : 'desktop';
+      let platform = 'windows';
+      if (isIOS) platform = 'ios';
+      else if (isAndroid) platform = 'android';
+      else if (/Mac/i.test(navigator.platform || '')) platform = 'mac';
+      else if (/Linux/i.test(navigator.platform || '')) platform = 'linux';
+      let deviceType = 'desktop';
+      if (isIOS || isAndroid || isMobile) deviceType = isTablet ? 'tablet' : 'mobile';
 
       const res = await fetch('/api/chat', {
         method: 'POST',
@@ -786,7 +829,9 @@ document.addEventListener('DOMContentLoaded', () => {
           fileAttachment: attachmentToSend,
           devicePlatform: platform,
           deviceType: deviceType,
-          isLocalHost: isLocalHost
+          isLocalHost: isLocalHost,
+          clientBattery: clientBatteryData,
+          clientStorage: clientStorageData
         })
       });
 
@@ -827,14 +872,22 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (data.action === 'device_locked') {
           audio.playAlert();
           showDeviceLockOverlay();
+        } else if (data.action === 'system_locked') {
+          audio.playAlert();
         } else if (data.action === 'battery_status') {
           audio.playAcknowledge();
           if (navigator.getBattery) {
             navigator.getBattery().then(bat => {
               const pct = Math.round(bat.level * 100);
+              clientBatteryData = { percent: pct, isCharging: Boolean(bat.charging) };
               if (hudBattery) hudBattery.textContent = `${pct}% ${bat.charging ? '⚡' : ''}`;
             }).catch(() => {});
+          } else if (data.data && typeof data.data.percent === 'number') {
+            if (hudBattery) hudBattery.textContent = `${data.data.percent}% ${data.data.isCharging ? '⚡' : ''}`;
           }
+        } else if (data.action === 'disk_space') {
+          audio.playAcknowledge();
+          updateClientStorageTelemetry();
         } else if (data.action === 'screenshot_captured') {
           audio.playAcknowledge();
         } else if (data.action === 'open_url' && data.data && data.data.url) {
@@ -874,7 +927,7 @@ document.addEventListener('DOMContentLoaded', () => {
           loadNotes();
         } else if (data.action === 'protocol_alert') {
           audio.playAlert();
-        } else if (data.action === 'system_diagnostics') {
+        } else if (data.action === 'system_diagnostics' || data.action === 'cpu_info') {
           fetchTelemetry();
         }
         return;

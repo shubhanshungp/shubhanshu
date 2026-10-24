@@ -863,6 +863,35 @@ Write-Output '${targetPath.replace(/\\/g, '\\\\')}';
   }
 
   /**
+   * Get CPU Architecture & Processor Information cross-platform
+   */
+  async getCpuInfo() {
+    const cpus = os.cpus() || [];
+    const rawModel = cpus.length > 0 ? cpus[0].model : 'Unknown Processor';
+    const cleanModel = rawModel.replace(/\(R\)|\(TM\)/gi, '').replace(/\s+/g, ' ').split('@')[0].trim();
+    const arch = os.arch();
+    const archFormatted = arch === 'x64' 
+      ? 'x86_64 / x64 (64-Bit Architecture)' 
+      : (arch === 'arm64' ? 'ARM64 (64-Bit Architecture)' : (arch === 'ia32' ? 'x86 (32-Bit Architecture)' : `${arch.toUpperCase()} Architecture`));
+    const cores = cpus.length;
+    const speedMHz = cpus.length > 0 ? cpus[0].speed : 0;
+    const speedGHz = (speedMHz / 1000).toFixed(2);
+    const osPlatform = `${os.type()} ${os.arch()} (${os.release()})`;
+
+    return {
+      success: true,
+      arch,
+      archFormatted,
+      model: cleanModel || 'Intel / AMD Processor',
+      rawModel,
+      cores,
+      speedMHz,
+      speedGHz,
+      osPlatform
+    };
+  }
+
+  /**
    * Get Drive Storage / Disk Space telemetry cross-platform (macOS, Linux, Windows)
    */
   async getDiskSpace() {
